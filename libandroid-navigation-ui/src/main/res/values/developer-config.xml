@@ -5,5 +5,5 @@
     <!-- The "day" style used for navigation, here mapilion is used but you can use maptiler too -->
     <string name="map_style_light" translatable="false">m</string>
     <!-- The "night" style used for navigation -->
-    <string name="map_style_dark" translatable="false">https://tiles.openfreemap.org/styles/liberty</string>
+    <string name="map_style_dark" translatable="false">https://tiles.openfreemap.org/styles/dark</string>
 </resources>
