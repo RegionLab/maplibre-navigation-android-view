@@ -67,7 +67,7 @@ class NavigationUIActivity :
 
         binding = ActivityNavigationUiBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.navigationView.onCreate(this, savedInstanceState, this, MapRouteData.LIGHT_THEME)
+        binding.navigationView.onCreate(this, savedInstanceState, this, "https://tiles.openfreemap.org/styles/dark")
 
 //        binding.mapView.apply {
 //            onCreate(savedInstanceState)
@@ -83,7 +83,8 @@ class NavigationUIActivity :
             points.add(Pair(76.930137, 43.230361))
             points.add(Pair(76.928316, 43.236109))
             points.add(Pair(76.920187, 43.236783))
-//            binding.navigationView.calculateRoute(points, Pair(76.930137, 43.230361), getString(R.string.mapbox_access_token))
+            binding.navigationView.calculateRoute(MapRouteData(getString(R.string.mapbox_access_token), "getString(R.string.mapbox_access_token)",
+                points, Pair(76.930137, 43.230361), MapRouteData.DARK_THEME))
         }
 //        binding.clearPoints.setOnClickListener {
 //            if (::mapboxMap.isInitialized) {
