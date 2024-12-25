@@ -81,7 +81,7 @@ dependencies {
     implementation dependenciesList.timber
 
     implementation dependenciesList.kotlinxSerializationJson
-    
+
     // Unit testing
     testImplementation dependenciesList.junit
     testImplementation dependenciesList.hamcrest

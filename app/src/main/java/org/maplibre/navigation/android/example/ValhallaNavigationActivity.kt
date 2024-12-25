@@ -1,4 +1,4 @@
-package org.maplibre.navigation.android.example
+package com.mapbox.services.android.navigation.testapp
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -6,9 +6,11 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
-import org.maplibre.geojson.Point
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.maplibre.android.annotations.MarkerOptions
-import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.android.location.LocationComponentActivationOptions
@@ -17,20 +19,15 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
 import org.maplibre.android.maps.Style
+import org.maplibre.geojson.Point
+import org.maplibre.navigation.android.example.R
 import org.maplibre.navigation.android.example.databinding.ActivityNavigationUiBinding
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationLauncher
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationLauncherOptions
+import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
 import org.maplibre.navigation.android.navigation.v5.models.DirectionsResponse
 import org.maplibre.navigation.android.navigation.v5.models.DirectionsRoute
 import org.maplibre.navigation.android.navigation.v5.models.RouteOptions
-import org.maplibre.navigation.android.navigation.v5.navigation.*
 import org.maplibre.turf.TurfConstants
 import org.maplibre.turf.TurfMeasurement
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
 import timber.log.Timber
 import java.io.IOException
 import java.util.Locale
@@ -56,50 +53,47 @@ class ValhallaNavigationActivity :
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
-        }
-
-        binding = ActivityNavigationUiBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.mapView.apply {
-            onCreate(savedInstanceState)
-            getMapAsync(this@ValhallaNavigationActivity)
-        }
-
-        binding.startRouteButton.setOnClickListener {
-            route?.let { route ->
-                val userLocation = mapLibreMap.locationComponent.lastKnownLocation ?: return@let
-                val options = NavigationLauncherOptions.builder()
-                    .directionsRoute(route)
-                    .shouldSimulateRoute(simulateRoute)
-                    .initialMapCameraPosition(
-                        CameraPosition.Builder()
-                            .target(LatLng(userLocation.latitude, userLocation.longitude)).build()
-                    )
-                    .lightThemeResId(R.style.TestNavigationViewLight)
-                    .darkThemeResId(R.style.TestNavigationViewDark)
-                    .build()
-                NavigationLauncher.startNavigation(this@ValhallaNavigationActivity, options)
-            }
-        }
-
-        binding.simulateRouteSwitch.setOnCheckedChangeListener { _, checked ->
-            simulateRoute = checked
-        }
-
-        binding.clearPoints.setOnClickListener {
-            if (::mapLibreMap.isInitialized) {
-                mapLibreMap.markers.forEach {
-                    mapLibreMap.removeMarker(it)
-                }
-            }
-            destination = null
-            it.visibility = View.GONE
-            binding.startRouteLayout.visibility = View.GONE
-
-            navigationMapRoute?.removeRoute()
-        }
+//        if (BuildConfig.DEBUG) {
+//            Timber.plant(Timber.DebugTree())
+//        }
+//
+//        binding = ActivityNavigationUiBinding.inflate(layoutInflater)
+//        setContentView(binding.root)
+//        binding.mapView.apply {
+//            onCreate(savedInstanceState)
+//            getMapAsync(this@ValhallaNavigationActivity)
+//        }
+//
+//        binding.startRouteButton.setOnClickListener {
+//            route?.let { route ->
+//                val userLocation = mapboxMap.locationComponent.lastKnownLocation ?: return@let
+//                val options = NavigationLauncherOptions.builder()
+//                    .directionsRoute(route)
+//                    .shouldSimulateRoute(simulateRoute)
+//                    .initialMapCameraPosition(CameraPosition.Builder().target(LatLng(userLocation.latitude, userLocation.longitude)).build())
+//                    .lightThemeResId(R.style.TestNavigationViewLight)
+//                    .darkThemeResId(R.style.TestNavigationViewDark)
+//                    .build()
+//                NavigationLauncher.startNavigation(this@ValhallaNavigationActivity, options)
+//            }
+//        }
+//
+//        binding.simulateRouteSwitch.setOnCheckedChangeListener { _, checked ->
+//            simulateRoute = checked
+//        }
+//
+//        binding.clearPoints.setOnClickListener {
+//            if (::mapboxMap.isInitialized) {
+//                mapboxMap.markers.forEach {
+//                    mapboxMap.removeMarker(it)
+//                }
+//            }
+//            destination = null
+//            it.visibility = View.GONE
+//            binding.startRouteLayout.visibility = View.GONE
+//
+//            navigationMapRoute?.removeRoute()
+//        }
     }
 
     override fun onMapReady(mapLibreMap: MapLibreMap) {
@@ -108,15 +102,19 @@ class ValhallaNavigationActivity :
             Style.Builder().fromUri(getString(R.string.map_style_light))
         ) { style ->
             enableLocationComponent(style)
-            navigationMapRoute = NavigationMapRoute(binding.mapView, mapLibreMap)
-            mapLibreMap.addOnMapClickListener(this)
-
-            Snackbar.make(
-                findViewById(R.id.container),
-                "Tap map to place destination",
-                Snackbar.LENGTH_LONG,
-            ).show()
         }
+//
+//        navigationMapRoute = NavigationMapRoute(
+//            binding.mapView,
+//            mapboxMap
+//        )
+
+        mapLibreMap.addOnMapClickListener(this)
+        Snackbar.make(
+            findViewById(R.id.container),
+            "Tap map to place destination",
+            Snackbar.LENGTH_LONG,
+        ).show()
     }
 
     @SuppressWarnings("MissingPermission")
@@ -145,7 +143,7 @@ class ValhallaNavigationActivity :
         destination = Point.fromLngLat(point.longitude, point.latitude)
 
         mapLibreMap.addMarker(MarkerOptions().position(point))
-        binding.clearPoints.visibility = View.VISIBLE
+//        binding.clearPoints.visibility = View.VISIBLE
         calculateRoute()
         return true
     }
@@ -278,27 +276,27 @@ class ValhallaNavigationActivity :
 
     override fun onResume() {
         super.onResume()
-        binding.mapView.onResume()
+//        binding.mapView.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        binding.mapView.onPause()
+//        binding.mapView.onPause()
     }
 
     override fun onStart() {
         super.onStart()
-        binding.mapView.onStart()
+//        binding.mapView.onStart()
     }
 
     override fun onStop() {
         super.onStop()
-        binding.mapView.onStop()
+//        binding.mapView.onStop()
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        binding.mapView.onLowMemory()
+//        binding.mapView.onLowMemory()
     }
 
     override fun onDestroy() {
@@ -306,11 +304,11 @@ class ValhallaNavigationActivity :
         if (::mapLibreMap.isInitialized) {
             mapLibreMap.removeOnMapClickListener(this)
         }
-        binding.mapView.onDestroy()
+//        binding.mapView.onDestroy()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        binding.mapView.onSaveInstanceState(outState)
+//        binding.mapView.onSaveInstanceState(outState)
     }
 }
