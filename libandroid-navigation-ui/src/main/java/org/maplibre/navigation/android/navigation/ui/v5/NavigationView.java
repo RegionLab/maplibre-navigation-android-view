@@ -236,7 +236,10 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
    */
   @Override
   public void onMapReady(final MapLibreMap mapLibreMap) {
-    mapLibreMap.setStyle(ThemeSwitcher.retrieveMapStyle(getContext()), new Style.OnStyleLoaded() {
+
+    Style.Builder builder = new Style.Builder().fromUri(getContext().getString(R.string.map_style_light));
+
+    mapLibreMap.setStyle((builder), new Style.OnStyleLoaded() {
       @Override
       public void onStyleLoaded(@NonNull Style style) {
         initializeNavigationMap(mapView, mapLibreMap);
@@ -245,6 +248,11 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
         isMapInitialized = true;
       }
     });
+    calculateRoute();
+  }
+
+  private void calculateRoute() {
+
   }
 
   @Override
@@ -523,7 +531,7 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
 
   private void initializeNavigationViewModel() {
     try {
-      navigationViewModel = new ViewModelProvider((FragmentActivity) getContext()).get(NavigationViewModel.class);
+      navigationViewModel = new NavigationViewModel(getContext());
     } catch (ClassCastException exception) {
       throw new ClassCastException("Please ensure that the provided Context is a valid FragmentActivity");
     }

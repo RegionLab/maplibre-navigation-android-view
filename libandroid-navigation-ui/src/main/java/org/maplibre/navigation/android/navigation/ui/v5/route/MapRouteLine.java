@@ -8,6 +8,7 @@ import android.os.Handler;
 import androidx.annotation.ColorInt;
 import androidx.core.content.ContextCompat;
 
+import org.maplibre.navigation.android.navigation.ui.v5.BuildConfig;
 import org.maplibre.navigation.android.navigation.ui.v5.R;
 import org.maplibre.navigation.android.navigation.ui.v5.utils.MapUtils;
 import org.maplibre.navigation.android.navigation.v5.models.DirectionsRoute;
@@ -41,6 +42,8 @@ import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConsta
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_ORIGIN_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_PROPERTY_KEY;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
+
+import timber.log.Timber;
 
 class MapRouteLine {
 
@@ -95,15 +98,15 @@ class MapRouteLine {
                MapRouteLayerProvider layerProvider,
                Handler handler) {
     this(context, style, styleRes, belowLayer, drawableProvider, sourceProvider, layerProvider,
-      FeatureCollection.fromFeatures(new Feature[]{}),
-      FeatureCollection.fromFeatures(new Feature[]{}),
-      new ArrayList<DirectionsRoute>(),
-      new ArrayList<FeatureCollection>(),
-      new HashMap<LineString, DirectionsRoute>(),
-      0,
-      true,
-      true,
-      handler);
+            FeatureCollection.fromFeatures(new Feature[]{}),
+            FeatureCollection.fromFeatures(new Feature[]{}),
+            new ArrayList<DirectionsRoute>(),
+            new ArrayList<FeatureCollection>(),
+            new HashMap<LineString, DirectionsRoute>(),
+            0,
+            true,
+            true,
+            handler);
   }
 
   MapRouteLine(Context context,
@@ -130,49 +133,55 @@ class MapRouteLine {
     TypedArray typedArray = context.obtainStyledAttributes(styleRes, R.styleable.NavigationMapRoute);
     // Primary Route attributes
     routeDefaultColor = typedArray.getColor(R.styleable.NavigationMapRoute_routeColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_blue));
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_blue));
     routeModerateColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_routeModerateCongestionColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_congestion_yellow));
+            R.styleable.NavigationMapRoute_routeModerateCongestionColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_congestion_yellow));
     routeSevereColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_routeSevereCongestionColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_congestion_red));
+            R.styleable.NavigationMapRoute_routeSevereCongestionColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_layer_congestion_red));
     routeShieldColor = typedArray.getColor(R.styleable.NavigationMapRoute_routeShieldColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_shield_layer_color));
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_shield_layer_color));
     routeScale = typedArray.getFloat(R.styleable.NavigationMapRoute_routeScale, 1.0f);
     roundedLineCap = typedArray.getBoolean(R.styleable.NavigationMapRoute_roundedLineCap, true);
 
     // Secondary Routes attributes
     alternativeRouteDefaultColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_alternativeRouteColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_color));
+            R.styleable.NavigationMapRoute_alternativeRouteColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_color));
     alternativeRouteModerateColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_alternativeRouteModerateCongestionColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_congestion_yellow));
+            R.styleable.NavigationMapRoute_alternativeRouteModerateCongestionColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_congestion_yellow));
     alternativeRouteSevereColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_alternativeRouteSevereCongestionColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_congestion_red));
+            R.styleable.NavigationMapRoute_alternativeRouteSevereCongestionColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_congestion_red));
     alternativeRouteShieldColor = typedArray.getColor(
-      R.styleable.NavigationMapRoute_alternativeRouteShieldColor,
-      ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_shield_color));
+            R.styleable.NavigationMapRoute_alternativeRouteShieldColor,
+            ContextCompat.getColor(context, R.color.maplibre_navigation_route_alternative_shield_color));
     alternativeRouteScale = typedArray.getFloat(
-      R.styleable.NavigationMapRoute_alternativeRouteScale, 1.0f);
+            R.styleable.NavigationMapRoute_alternativeRouteScale, 1.0f);
 
     GeoJsonOptions wayPointGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnWaypointsFeatureCollection = waypointsFeatureCollection;
     wayPointSource = sourceProvider.build(WAYPOINT_SOURCE_ID, drawnWaypointsFeatureCollection, wayPointGeoJsonOptions);
-    style.addSource(wayPointSource);
 
     GeoJsonOptions routeLineGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnRouteFeatureCollection = routesFeatureCollection;
     routeLineSource = sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions);
-    style.addSource(routeLineSource);
 
+    try {
+      style.addSource(wayPointSource);
+      style.addSource(routeLineSource);
+    } catch(Exception e) {
+      if (BuildConfig.DEBUG) {
+        Timber.d("Style Already exists");
+      }
+    }
     // Waypoint attributes
     int originWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_originWaypointIcon, R.drawable.ic_route_origin);
+            R.styleable.NavigationMapRoute_originWaypointIcon, R.drawable.ic_route_origin);
     int destinationWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_destinationWaypointIcon, R.drawable.ic_route_destination);
+            R.styleable.NavigationMapRoute_destinationWaypointIcon, R.drawable.ic_route_destination);
     typedArray.recycle();
 
     Drawable originIcon = drawableProvider.retrieveDrawable(originWaypointIcon);
@@ -254,7 +263,7 @@ class MapRouteLine {
 
   boolean updatePrimaryRouteIndex(int primaryRouteIndex) {
     boolean isNewIndex = this.primaryRouteIndex != primaryRouteIndex
-      && primaryRouteIndex < directionsRoutes.size() && primaryRouteIndex >= 0;
+            && primaryRouteIndex < directionsRoutes.size() && primaryRouteIndex >= 0;
     if (isNewIndex) {
       this.primaryRouteIndex = primaryRouteIndex;
       updateRoutesFor(primaryRouteIndex);
@@ -356,8 +365,8 @@ class MapRouteLine {
 
   private Feature buildWayPointFeatureFromLeg(RouteLeg leg, int index) {
     Feature feature = Feature.fromGeometry(Point.fromLngLat(
-      leg.getSteps().get(index).getManeuver().getLocation().longitude(),
-      leg.getSteps().get(index).getManeuver().getLocation().latitude()
+            leg.getSteps().get(index).getManeuver().getLocation().longitude(),
+            leg.getSteps().get(index).getManeuver().getLocation().latitude()
     ));
     feature.addStringProperty(WAYPOINT_PROPERTY_KEY, index == 0 ? WAYPOINT_ORIGIN_VALUE : WAYPOINT_DESTINATION_VALUE);
     return feature;
@@ -393,7 +402,7 @@ class MapRouteLine {
       return primaryRouteUpdateTask;
     }
     return new PrimaryRouteUpdateTask(newPrimaryIndex,
-      routeFeatureCollections, primaryRouteUpdatedCallback, mainHandler);
+            routeFeatureCollections, primaryRouteUpdatedCallback, mainHandler);
   }
 
   private OnPrimaryRouteUpdatedCallback primaryRouteUpdatedCallback = new OnPrimaryRouteUpdatedCallback() {
@@ -413,8 +422,8 @@ class MapRouteLine {
       List<Layer> styleLayers = style.getLayers();
       for (int i = 0; i < styleLayers.size(); i++) {
         if (!(styleLayers.get(i) instanceof SymbolLayer)
-          // Avoid placing the route on top of the user location layer
-          && !styleLayers.get(i).getId().contains(RouteConstants.MAPLIBRE_LOCATION_ID)) {
+                // Avoid placing the route on top of the user location layer
+                && !styleLayers.get(i).getId().contains(RouteConstants.MAPLIBRE_LOCATION_ID)) {
           belowLayer = styleLayers.get(i).getId();
         }
       }
@@ -426,23 +435,23 @@ class MapRouteLine {
                                 Drawable originIcon, Drawable destinationIcon,
                                 String belowLayer) {
     LineLayer routeShieldLayer = layerProvider.initializeRouteShieldLayer(
-      style, routeScale, alternativeRouteScale,
-      routeShieldColor, alternativeRouteShieldColor
+            style, routeScale, alternativeRouteScale,
+            routeShieldColor, alternativeRouteShieldColor
     );
     MapUtils.addLayerToMap(style, routeShieldLayer, belowLayer);
     routeLayerIds.add(routeShieldLayer.getId());
 
     LineLayer routeLayer = layerProvider.initializeRouteLayer(
-      style, roundedLineCap, routeScale, alternativeRouteScale,
-      routeDefaultColor, routeModerateColor, routeSevereColor,
-      alternativeRouteDefaultColor, alternativeRouteModerateColor,
-      alternativeRouteSevereColor
+            style, roundedLineCap, routeScale, alternativeRouteScale,
+            routeDefaultColor, routeModerateColor, routeSevereColor,
+            alternativeRouteDefaultColor, alternativeRouteModerateColor,
+            alternativeRouteSevereColor
     );
     MapUtils.addLayerToMap(style, routeLayer, belowLayer);
     routeLayerIds.add(routeLayer.getId());
 
     SymbolLayer wayPointLayer = layerProvider.initializeWayPointLayer(
-      style, originIcon, destinationIcon
+            style, originIcon, destinationIcon
     );
     MapUtils.addLayerToMap(style, wayPointLayer, belowLayer);
     routeLayerIds.add(wayPointLayer.getId());
@@ -474,7 +483,7 @@ class MapRouteLine {
         Layer layer = style.getLayer(layerId);
         if (layer != null) {
           layer.setProperties(
-            visibility(isVisible ? VISIBLE : NONE)
+                  visibility(isVisible ? VISIBLE : NONE)
           );
         }
       }

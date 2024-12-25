@@ -2,6 +2,7 @@ package org.maplibre.navigation.android.navigation.ui.v5.instruction;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
@@ -31,6 +32,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.transition.AutoTransition;
 import androidx.transition.TransitionManager;
 
+import org.maplibre.navigation.android.navigation.ui.v5.MapRouteData;
 import org.maplibre.navigation.android.navigation.ui.v5.NavigationButton;
 import org.maplibre.navigation.android.navigation.ui.v5.NavigationViewModel;
 import org.maplibre.navigation.android.navigation.ui.v5.SoundButton;
@@ -503,17 +505,17 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
    * and use custom animations to hide and show the instructions /sound layout
    */
   private void initializePortraitListListener() {
-    instructionLayout.setOnClickListener(new OnClickListener() {
-      @Override
-      public void onClick(View instructionView) {
-        boolean instructionsVisible = instructionListLayout.getVisibility() == VISIBLE;
-        if (!instructionsVisible) {
-          showInstructionList();
-        } else {
-          hideInstructionList();
-        }
-      }
-    });
+//    instructionLayout.setOnClickListener(new OnClickListener() {
+//      @Override
+//      public void onClick(View instructionView) {
+//        boolean instructionsVisible = instructionListLayout.getVisibility() == VISIBLE;
+//        if (!instructionsVisible) {
+//          showInstructionList();
+//        } else {
+//          hideInstructionList();
+//        }
+//      }
+//    });
   }
 
   /**
@@ -782,4 +784,18 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     rvInstructions.stopScroll();
     instructionListAdapter.updateBannerListWith(routeProgress, isListShowing);
   }
+
+  public void setupStyle(String mapStyle) {
+    ConstraintLayout instructionBackground = findViewById(R.id.instructionBackground);
+    if (mapStyle.equals(MapRouteData.DARK_THEME)) {
+      instructionBackground.setBackgroundColor(Color.BLACK);
+      upcomingDistanceText.setTextColor(Color.WHITE);
+      upcomingPrimaryText.setTextColor(Color.WHITE);
+    } else {
+      instructionBackground.setBackgroundColor(Color.WHITE);
+      upcomingDistanceText.setTextColor(Color.BLACK);
+      upcomingPrimaryText.setTextColor(Color.BLACK);
+    }
+  }
+
 }
