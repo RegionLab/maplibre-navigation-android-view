@@ -10,7 +10,6 @@ maplibre = "11.13.5"
 maplibre-annotation = "3.0.2"
 maplibre-geojson = "7.0.0-pre0"
 play-services-location = "21.3.0"
-kotlin-test = "2.1.21"
 mockk = "1.14.5"
 robolectric = "4.16"
 material = "1.13.0"
@@ -65,7 +64,7 @@ json = { group = "org.json", name = "json", version.ref = "json" }
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
 
 # Test KMP
-kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin-test" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 
 # Test Android
