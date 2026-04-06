@@ -13,6 +13,17 @@
     </issue>
 
     <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="    locationComponent.setLocationComponentEnabled(isVisible);"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/maplibre/navigation/android/navigation/ui/v5/map/NavigationMapLibreMap.java"
+            line="503"
+            column="5"/>
+    </issue>
+
+    <issue
         id="DuplicateIncludedIds"
         message="Duplicate id @+id/guideline, defined or included multiple times in layout/instruction_view_layout.xml: [layout/instruction_view_layout.xml => layout/sub_instruction_layout.xml defines @+id/guideline, layout/instruction_view_layout.xml => layout/instruction_layout.xml => layout/instruction_content_layout.xml defines @+id/guideline]"
         errorLine1="        &lt;include"
