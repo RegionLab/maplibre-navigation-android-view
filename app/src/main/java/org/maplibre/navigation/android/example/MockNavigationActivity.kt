@@ -231,7 +231,7 @@ class MockNavigationActivity :
             this.destination(destination)
             this.voiceUnits(UnitType.METRIC)
             this.alternatives(true)
-            this.baseUrl(getString(R.string.base_url))
+            this.baseUrl(getString(R.string.mapbox_base_url))
         }
 
         navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {

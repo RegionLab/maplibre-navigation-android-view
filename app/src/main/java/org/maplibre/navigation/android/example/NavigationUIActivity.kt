@@ -16,11 +16,11 @@ import org.maplibre.android.plugins.annotation.SymbolOptions
 import org.maplibre.android.style.layers.Property.ICON_ANCHOR_CENTER
 import org.maplibre.geojson.Point
 import org.maplibre.navigation.android.example.databinding.ActivityNavigationUiBinding
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationRequest
 import org.maplibre.navigation.android.navigation.ui.v5.NavigationLauncher
-import org.maplibre.navigation.android.navigation.ui.v5.RoutingService
+import org.maplibre.navigation.android.navigation.ui.v5.NavigationRequest
 import org.maplibre.navigation.android.navigation.ui.v5.NavigationViewOptions
 import org.maplibre.navigation.android.navigation.ui.v5.OnNavigationReadyCallback
+import org.maplibre.navigation.android.navigation.ui.v5.RoutingService
 import org.maplibre.navigation.android.navigation.ui.v5.listeners.NavigationListener
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
@@ -62,7 +62,10 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
         setContentView(binding.root)
 
         binding.navigationView.apply {
-            onCreate(savedInstanceState, mapStyleUri = "https://api.maptiler.com/maps/streets-v2/style.json?key=ZkZSWT2Q0ta4f3S1VyrZ")
+            onCreate(
+                savedInstanceState,
+                mapStyleUri = "https://api.maptiler.com/maps/streets-v2/style.json?key=ZkZSWT2Q0ta4f3S1VyrZ"
+            )
             initialize(
                 simulateRoute,
                 onMapReadyCallback = {
@@ -76,12 +79,13 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                     it.setMaxZoomPreference(18.0)
                     it.setMinZoomPreference(5.0)
                     getDrawable(R.drawable.ic_car_top)?.let {
-                        mapLibreMap?.style?.addImage("DRIVER_MARKER_ICON_ID",
+                        mapLibreMap?.style?.addImage(
+                            "DRIVER_MARKER_ICON_ID",
                             it
                         )
                     }
                     val symbolOptions = SymbolOptions()
-                        .withLatLng(LatLng(43.230361,76.930137))
+                        .withLatLng(LatLng(43.230361, 76.930137))
                         .withIconImage("DRIVER_MARKER_ICON_ID")
                         .withIconAnchor(ICON_ANCHOR_CENTER)
 
@@ -116,9 +120,9 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
 //        }
 
         val points = mutableListOf<Point>()
+        points.add(Point.fromLngLat(76.93348165601492, 43.22596650770448))
 //        points.add(Pair(76.928316, 43.236109))
-        points.add(Point.fromLngLat(76.933810, 43.230633))
-        points.add(Point.fromLngLat(76.920187, 43.236783))
+        points.add(Point.fromLngLat(76.9333378225565, 43.22584777694432))
 //        points.add(Pair(76.930137, 43.230361))
         binding.simulateRouteSwitch.setOnCheckedChangeListener { _, isChecked ->
 //            mapLibreMap?.locationComponent?.cameraMode = CameraMode.TRACKING
@@ -128,7 +132,14 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
             } else {
 
             }
-            mapLibreMap?.locationComponent?.setCameraMode(CameraMode.TRACKING_GPS, 100, 16.0, null, null, null)
+            mapLibreMap?.locationComponent?.setCameraMode(
+                CameraMode.TRACKING_GPS,
+                100,
+                16.0,
+                null,
+                null,
+                null
+            )
         }
         binding.navigationView.showInstructionView()
         binding.startRouteButton.setOnClickListener {
@@ -140,10 +151,13 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                 isStarted = true
                 binding.navigationView.calculateRouteAndStartNavigation(
                     NavigationRequest(
-                        origin = Point.fromLngLat(76.93312659859657, 43.2283288597314),
+                        origin = Point.fromLngLat(76.93390611559153, 43.23088776754339),
                         stops = points,
-                        destination = Point.fromLngLat(76.92803341895342,43.23938818876529,),
-                        routingService = RoutingService.Mapbox(getString(R.string.base_url), getString(R.string.mapbox_access_token)),
+                        destination = Point.fromLngLat(76.91994253546, 43.229125980195946),
+                        routingService = RoutingService.GraphHopper(
+                            getString(R.string.graphhopper_base_url),
+                            getString(R.string.graphhopper_access_token)
+                        ),
                         language = Locale.getDefault()
                     )
                 )
@@ -236,7 +250,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
             // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
             //this.user("gh")
             //this.profile("car")
-            this.baseUrl(getString(R.string.base_url))
+            this.baseUrl(getString(R.string.mapbox_base_url))
         }
 
 
