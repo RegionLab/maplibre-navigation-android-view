@@ -148,7 +148,7 @@ class NavigationWithCustomForegroundNotificationActivity : AppCompatActivity(), 
             // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
             this.user("gh")
             this.profile("car")
-            this.baseUrl(getString(R.string.base_url))
+            this.baseUrl(getString(R.string.mapbox_base_url))
         }
 
         navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {

@@ -58,18 +58,7 @@ class MapPaddingAdjustor {
   }
 
   private int[] calculateDefaultPadding(MapView mapView) {
-    int defaultTopPadding = calculateTopPaddingWithoutWayname(mapView);
-    Resources resources = mapView.getContext().getResources();
-    int waynameLayoutHeight = (int) resources.getDimension(R.dimen.wayname_view_height);
-    int topPadding = defaultTopPadding - (waynameLayoutHeight * WAYNAME_PADDING_MULTIPLIER);
-    return new int[] {0, topPadding, 0, 0};
+    return new int[] {0, 0, 0, 0};
   }
 
-  private int calculateTopPaddingWithoutWayname(MapView mapView) {
-    Context context = mapView.getContext();
-    Resources resources = context.getResources();
-    int mapViewHeight = mapView.getHeight();
-    int bottomSheetHeight = (int) resources.getDimension(R.dimen.summary_bottomsheet_height);
-    return mapViewHeight - (bottomSheetHeight * BOTTOMSHEET_PADDING_MULTIPLIER);
-  }
 }
