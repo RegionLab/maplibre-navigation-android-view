@@ -71,4 +71,9 @@
     <string name="error_valid_route_not_found">Valid route not found.</string>
     <string name="explanation_long_press_waypoint">Long press map to place waypoint</string>
 
+
+    <string name="base_url" translatable="false">https://api.mapbox.com/</string>
+    <string name="mapbox_access_token" translatable="false">sk</string>
+
+
 </resources>

@@ -226,12 +226,12 @@ class MockNavigationActivity :
         }
 
         val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
+//            this.accessToken(getString(R.string.mapbox_access_token))
             this.origin(origin)
             this.destination(destination)
             this.voiceUnits(UnitType.METRIC)
             this.alternatives(true)
-            this.baseUrl(getString(R.string.mapbox_base_url))
+//            this.baseUrl(getString(R.string.base_url))
         }
 
         navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {

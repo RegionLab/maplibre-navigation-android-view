@@ -129,13 +129,13 @@ class SnapToRouteNavigationActivity : AppCompatActivity(), OnMapReadyCallback,
 
     private fun calculateRouteAndStartNavigation() {
         val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
+//            this.accessToken(getString(R.string.mapbox_access_token))
             this.origin(Point.fromLngLat(9.7536318, 52.3717979))
             this.addWaypoint(Point.fromLngLat(9.741052, 52.360496))
             this.destination(Point.fromLngLat(9.756259, 52.342620))
             this.voiceUnits(UnitType.METRIC)
             this.alternatives(true)
-            this.baseUrl(getString(R.string.mapbox_base_url))
+//            this.baseUrl(getString(R.string.base_url))
         }
 
         navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {
