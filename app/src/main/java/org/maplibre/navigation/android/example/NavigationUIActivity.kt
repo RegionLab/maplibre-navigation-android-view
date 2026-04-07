@@ -154,9 +154,9 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                         origin = Point.fromLngLat(76.93390611559153, 43.23088776754339),
                         stops = points,
                         destination = Point.fromLngLat(76.91994253546, 43.229125980195946),
-                        routingService = RoutingService.GraphHopper(
-                            getString(R.string.graphhopper_base_url),
-                            getString(R.string.graphhopper_access_token)
+                        routingService = RoutingService.Mapbox(
+                            getString(R.string.base_url),
+                            getString(R.string.mapbox_access_token)
                         ),
                         language = Locale.getDefault()
                     )
