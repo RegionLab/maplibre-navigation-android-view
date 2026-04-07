@@ -139,7 +139,7 @@ class NavigationWithForegroundNotificationActivity : AppCompatActivity(), OnMapR
 
     private fun calculateRouteAndStartNavigation() {
         val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
+//            this.accessToken(getString(R.string.mapbox_access_token))
             this.origin(Point.fromLngLat( 10.246249, 50.055795))
             this.destination(Point.fromLngLat( 10.245291,50.056129))
             this.addWaypoint(Point.fromLngLat(10.243814,50.055662))
@@ -148,7 +148,7 @@ class NavigationWithForegroundNotificationActivity : AppCompatActivity(), OnMapR
             // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
             this.user("gh")
             this.profile("car")
-            this.baseUrl(getString(R.string.mapbox_base_url))
+//            this.baseUrl(getString(R.string.base_url))
         }
 
         navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {

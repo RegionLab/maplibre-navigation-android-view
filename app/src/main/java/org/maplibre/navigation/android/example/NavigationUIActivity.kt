@@ -242,7 +242,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
 //        }
 
         val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
+//            this.accessToken(getString(R.string.mapbox_access_token))
 //            this.origin(origin)
             this.destination(destination)
             this.voiceUnits(UnitType.METRIC)
@@ -250,7 +250,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
             // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
             //this.user("gh")
             //this.profile("car")
-            this.baseUrl(getString(R.string.mapbox_base_url))
+//            this.baseUrl(getString(R.string.base_url))
         }
 
 
