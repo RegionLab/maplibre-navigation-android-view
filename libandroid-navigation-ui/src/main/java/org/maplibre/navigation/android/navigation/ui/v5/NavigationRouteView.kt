@@ -246,7 +246,7 @@ class NavigationRouteView @JvmOverloads constructor(
                 call: Call<DirectionsResponse>,
                 response: Response<DirectionsResponse>,
             ) {
-                Timber.d("Response: $response")
+                Timber.d("Response: ${response.body()?.toJson()}")
                 response.body()?.let { responseBody ->
                     if (responseBody.routes.isNotEmpty()) {
                         val maplibreResponse = DirectionsResponse.fromJson(responseBody.toJson())

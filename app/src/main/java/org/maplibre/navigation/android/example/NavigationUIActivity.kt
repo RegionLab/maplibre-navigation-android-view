@@ -146,6 +146,8 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
             if (isStarted) {
                 binding.navigationView.stopNavigation()
                 binding.navigationView.retrieveNavigationMapLibreMap()?.removeRoute()
+                binding.navigationView.setPadding(0, 0, 0, 0)
+                mapLibreMap?.locationComponent?.renderMode = RenderMode.NORMAL
                 isStarted = false
             } else {
                 isStarted = true

@@ -58,7 +58,8 @@ class MapPaddingAdjustor {
   }
 
   private int[] calculateDefaultPadding(MapView mapView) {
-    return new int[] {0, 0, 0, 0};
+    int defaultTopPadding = (int) (mapView.getHeight() * .4);
+    return new int[] {0, defaultTopPadding, 0, 0};
   }
 
 }
