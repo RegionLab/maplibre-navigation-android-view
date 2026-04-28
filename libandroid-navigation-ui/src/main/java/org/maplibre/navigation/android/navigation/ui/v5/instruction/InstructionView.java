@@ -103,6 +103,16 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     private boolean isRerouting;
     private boolean instructionListEnabled = true;
     private LifecycleOwner lifecycleOwner;
+    private boolean instructionContentHidden;
+    private int maneuverViewVisibility = VISIBLE;
+    private int distanceViewVisibility = VISIBLE;
+    private int primaryTextVisibility = VISIBLE;
+    private int secondaryTextVisibility = VISIBLE;
+    private int instructionTextLayoutVisibility = VISIBLE;
+    private int turnLaneLayoutVisibility = GONE;
+    private int subStepLayoutVisibility = GONE;
+    private int instructionListLayoutVisibility = GONE;
+    private int alertViewVisibility = INVISIBLE;
 
     public InstructionView(Context context) {
         this(context, null);
@@ -175,7 +185,7 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         navigationViewModel.bannerInstructionModel.observe(lifecycleOwner, new Observer<BannerInstructionModel>() {
             @Override
             public void onChanged(@Nullable BannerInstructionModel model) {
-                if (model != null) {
+                if (model != null && !isRerouting) {
                     updateManeuverView(model.retrievePrimaryManeuverType(), model.retrievePrimaryManeuverModifier(),
                             model.retrievePrimaryRoundaboutAngle(), model.retrieveDrivingSide());
                     updateDataFromBannerText(model.retrievePrimaryBannerText(), model.retrieveSecondaryBannerText());
@@ -263,6 +273,7 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
      * @since 0.6.0
      */
     public void showRerouteState() {
+        setInstructionContentHidden(true);
         if (rerouteLayout.getVisibility() == INVISIBLE) {
             rerouteLayout.startAnimation(rerouteSlideDownTop);
             rerouteLayout.setVisibility(VISIBLE);
@@ -276,6 +287,7 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
      * @since 0.6.0
      */
     public void hideRerouteState() {
+        setInstructionContentHidden(false);
         if (rerouteLayout.getVisibility() == VISIBLE) {
             rerouteLayout.startAnimation(rerouteSlideUpTop);
             rerouteLayout.setVisibility(INVISIBLE);
@@ -463,6 +475,46 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         Context context = getContext();
         rerouteSlideDownTop = AnimationUtils.loadAnimation(context, R.anim.slide_down_top);
         rerouteSlideUpTop = AnimationUtils.loadAnimation(context, R.anim.slide_up_top);
+    }
+
+    private void setInstructionContentHidden(boolean hidden) {
+        if (hidden == instructionContentHidden) {
+            return;
+        }
+
+        if (hidden) {
+            maneuverViewVisibility = upcomingManeuverView.getVisibility();
+            distanceViewVisibility = upcomingDistanceText.getVisibility();
+            primaryTextVisibility = upcomingPrimaryText.getVisibility();
+            secondaryTextVisibility = upcomingSecondaryText.getVisibility();
+            instructionTextLayoutVisibility = instructionLayoutText.getVisibility();
+            turnLaneLayoutVisibility = turnLaneLayout.getVisibility();
+            subStepLayoutVisibility = subStepLayout.getVisibility();
+            instructionListLayoutVisibility = instructionListLayout.getVisibility();
+            alertViewVisibility = alertView.getVisibility();
+
+            upcomingManeuverView.setVisibility(GONE);
+            upcomingDistanceText.setVisibility(GONE);
+            upcomingPrimaryText.setVisibility(GONE);
+            upcomingSecondaryText.setVisibility(GONE);
+            instructionLayoutText.setVisibility(GONE);
+            turnLaneLayout.setVisibility(GONE);
+            subStepLayout.setVisibility(GONE);
+            instructionListLayout.setVisibility(GONE);
+            alertView.setVisibility(GONE);
+        } else {
+            upcomingManeuverView.setVisibility(maneuverViewVisibility);
+            upcomingDistanceText.setVisibility(distanceViewVisibility);
+            upcomingPrimaryText.setVisibility(primaryTextVisibility);
+            upcomingSecondaryText.setVisibility(secondaryTextVisibility);
+            instructionLayoutText.setVisibility(instructionTextLayoutVisibility);
+            turnLaneLayout.setVisibility(turnLaneLayoutVisibility);
+            subStepLayout.setVisibility(subStepLayoutVisibility);
+            instructionListLayout.setVisibility(instructionListLayoutVisibility);
+            alertView.setVisibility(alertViewVisibility);
+        }
+
+        instructionContentHidden = hidden;
     }
 
     private void onInstructionListVisibilityChanged(boolean visible) {

@@ -4,10 +4,13 @@ import android.app.Activity
 import android.content.Context
 import android.os.Bundle
 import android.util.AttributeSet
+import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import androidx.annotation.UiThread
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -50,8 +53,12 @@ class NavigationView @JvmOverloads constructor(
     NavigationContract.View {
     private lateinit var mapView: MapView
     private lateinit var instructionView: InstructionView
+    private var speedContainer: View? = null
     private var speedLimitView: TextView? = null
     private var speedView: TextView? = null
+    private var instructionTopMargin = 0
+    private var speedContainerTopMargin = 0
+    private var isSpeedLimitVisible = false
 
     private lateinit var navigationPresenter: NavigationPresenter
     private var navigationViewEventDispatcher: NavigationViewEventDispatcher? = null
@@ -228,7 +235,6 @@ class NavigationView @JvmOverloads constructor(
     ) {
         preNavigationLocationEngine?.stop()
         val route = routes.first()
-        navigationMap?.drawRoutes(routes)
         val options = NavigationViewOptions.builder()
         options.directionsRoute(route)
         options.navigationOptions(navigationOptions)
@@ -419,8 +425,38 @@ class NavigationView @JvmOverloads constructor(
         instructionView.let {
             ViewCompat.setElevation(it, 10f)
         }
+        speedContainer = findViewById(R.id.speedContainer)
         speedLimitView = findViewById(R.id.speedLimitView)
         speedView = findViewById(R.id.speedView)
+        isSpeedLimitVisible = speedLimitView?.visibility == VISIBLE
+        instructionTopMargin = findTopMargin(instructionView)
+        speedContainerTopMargin = speedContainer?.let(::findTopMargin) ?: 0
+        applyStatusBarInsets()
+    }
+
+    private fun applyStatusBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+            val statusBarTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            setTopMargin(instructionView, instructionTopMargin + statusBarTop)
+            speedContainer?.let {
+                setTopMargin(it, speedContainerTopMargin + statusBarTop)
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(this)
+    }
+
+    private fun findTopMargin(view: View): Int {
+        return (view.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+    }
+
+    private fun setTopMargin(view: View, marginTop: Int) {
+        val params = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        if (params.topMargin == marginTop) {
+            return
+        }
+        params.topMargin = marginTop
+        view.layoutParams = params
     }
 
     private fun initializeNavigationViewModel(context: Context) {
@@ -612,9 +648,6 @@ class NavigationView @JvmOverloads constructor(
         navigationViewModel.speedLimitModel.observe(this) { speedLimit ->
             updateSpeedLimit(speedLimit)
         }
-        navigationViewModel.speedModel.observe(this) { speed ->
-            updateSpeed(speed ?: 0.0)
-        }
 
         NavigationViewSubscriber(this, navigationViewModel, navigationPresenter).subscribe()
         isSubscribed = true
@@ -663,7 +696,6 @@ class NavigationView @JvmOverloads constructor(
     override fun updateSpeedLimit(maxSpeed: MaxSpeed?) {
         val speedLimitView = speedLimitView ?: return
         if (!showSpeedLimitView) {
-            speedLimitView.visibility = GONE
             speedLimitView.text = ""
             return
         }
@@ -671,10 +703,9 @@ class NavigationView @JvmOverloads constructor(
             maxSpeed?.none == true -> "∞"
             maxSpeed?.unknown == true -> "--"
             maxSpeed?.speed != null -> maxSpeed.speed.toString()
-            else -> null
+            else -> "--"
         }
         speedLimitView.text = value
-        speedLimitView.visibility = if (value == null) GONE else VISIBLE
         updateSpeedViewTranslation()
     }
 
