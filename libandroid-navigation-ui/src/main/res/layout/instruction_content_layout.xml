@@ -23,8 +23,8 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:maneuverViewPrimaryColor="@color/maplibre_navigation_route_layer_blue"
-            app:maneuverViewSecondaryColor="@color/maplibre_navigation_route_layer_blue"/>
+            app:maneuverViewPrimaryColor="?attr/navigationViewAccent"
+            app:maneuverViewSecondaryColor="?attr/navigationViewAccent"/>
 
         <TextView
             android:id="@+id/stepDistanceText"
