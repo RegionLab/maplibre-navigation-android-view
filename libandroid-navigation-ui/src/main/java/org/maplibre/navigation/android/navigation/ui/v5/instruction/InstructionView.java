@@ -101,7 +101,7 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
 
     private DistanceFormatter distanceFormatter;
     private boolean isRerouting;
-    private SoundButton soundButton;
+    private boolean instructionListEnabled = true;
     private LifecycleOwner lifecycleOwner;
 
     public InstructionView(Context context) {
@@ -141,7 +141,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         initializeInstructionListRecyclerView();
         initializeAnimations();
         initializeStepListClickListener();
-        initializeButtons();
         ImageCreator.getInstance().initialize(getContext());
     }
 
@@ -199,8 +198,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
             }
         });
         subscribeAlertView();
-        initializeButtonListeners();
-        showButtons();
     }
 
     /**
@@ -321,6 +318,9 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
      * can be animated appropriately.
      */
     public void showInstructionList() {
+        if (!instructionListEnabled) {
+            return;
+        }
         onInstructionListVisibilityChanged(true);
         instructionLayout.requestFocus();
         beginDelayedListTransition();
@@ -331,6 +331,9 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     }
 
     public boolean handleBackPressed() {
+        if (!instructionListEnabled) {
+            return false;
+        }
         if (isShowingInstructionList()) {
             hideInstructionList();
             return true;
@@ -351,13 +354,16 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     }
 
     /**
-     * Gets the sound button which is used for muting/unmuting, for uses such as adding listeners and
-     * hiding the button.
+     * Enables or disables opening the instruction list.
+     * Existing open list will be hidden when disabled.
      *
-     * @return sound button with {@link NavigationButton} API
+     * @param enabled true to allow, false to disable
      */
-    public NavigationButton retrieveSoundButton() {
-        return soundButton;
+    public void setInstructionListEnabled(boolean enabled) {
+        instructionListEnabled = enabled;
+        if (!enabled && instructionListLayout != null && isShowingInstructionList()) {
+            hideInstructionList();
+        }
     }
 
     /**
@@ -400,7 +406,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         instructionLayoutText = findViewById(R.id.instructionLayoutText);
         instructionListLayout = findViewById(R.id.instructionListLayout);
         rvInstructions = findViewById(R.id.rvInstructions);
-        soundButton = findViewById(R.id.soundLayout);
     }
 
     /**
@@ -470,29 +475,12 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         alertView.subscribe(navigationViewModel);
     }
 
-    private void initializeButtonListeners() {
-        soundButton.addOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                navigationViewModel.setMuted(soundButton.toggleMute());
-            }
-        });
-    }
-
-    private void showButtons() {
-        soundButton.show();
-    }
-
     private void initializeStepListClickListener() {
         if (isLandscape()) {
             initializeLandscapeListListener();
         } else {
             initializePortraitListListener();
         }
-    }
-
-    private void initializeButtons() {
-        soundButton.hide();
     }
 
     /**
@@ -521,6 +509,9 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         instructionLayoutText.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View instructionLayoutText) {
+                if (!instructionListEnabled) {
+                    return;
+                }
                 boolean instructionsVisible = instructionListLayout.getVisibility() == VISIBLE;
                 if (!instructionsVisible) {
                     showInstructionList();

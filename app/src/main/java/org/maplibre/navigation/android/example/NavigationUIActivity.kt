@@ -141,7 +141,6 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                 null
             )
         }
-        binding.navigationView.showInstructionView()
         binding.startRouteButton.setOnClickListener {
             if (isStarted) {
                 binding.navigationView.stopNavigation()
@@ -151,7 +150,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                 isStarted = false
             } else {
                 isStarted = true
-                binding.navigationView.calculateRouteAndStartNavigation(
+                binding.navigationView.startNavigation(
                     NavigationRequest(
                         origin = Point.fromLngLat(76.93390611559153, 43.23088776754339),
                         stops = points,
@@ -164,6 +163,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
                     )
                 )
                 binding.navigationView.enableNavigatorSound(false)
+                binding.navigationView.configureUi(showSpeedLimitView = true)
 
             }
         }

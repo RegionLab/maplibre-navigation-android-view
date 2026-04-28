@@ -25,6 +25,7 @@ import org.maplibre.navigation.core.milestone.MilestoneEventListener;
 import org.maplibre.navigation.core.milestone.VoiceInstructionMilestone;
 import org.maplibre.navigation.core.models.BannerInstructions;
 import org.maplibre.navigation.core.models.DirectionsRoute;
+import org.maplibre.navigation.core.models.MaxSpeed;
 import org.maplibre.navigation.core.models.RouteOptions;
 import org.maplibre.navigation.core.models.UnitType;
 import org.maplibre.navigation.core.navigation.MapLibreNavigation;
@@ -51,6 +52,8 @@ public class NavigationViewModel {
     public final MutableLiveData<InstructionModel> instructionModel = new MutableLiveData<>();
     public final MutableLiveData<BannerInstructionModel> bannerInstructionModel = new MutableLiveData<>();
     public final MutableLiveData<SummaryModel> summaryModel = new MutableLiveData<>();
+    public final MutableLiveData<MaxSpeed> speedLimitModel = new MutableLiveData<>();
+    public final MutableLiveData<Double> speedModel = new MutableLiveData<>();
     public final MutableLiveData<Boolean> isOffRoute = new MutableLiveData<>();
     private final MutableLiveData<Location> navigationLocation = new MutableLiveData<>();
     private final MutableLiveData<DirectionsRoute> route = new MutableLiveData<>();
@@ -204,11 +207,24 @@ public class NavigationViewModel {
         sendEventArrival(routeProgress, milestone);
         instructionModel.setValue(new InstructionModel(distanceFormatter, routeProgress));
         summaryModel.setValue(new SummaryModel(context, distanceFormatter, routeProgress, timeFormatType));
+        speedLimitModel.setValue(routeProgress.getCurrentLegAnnotation() != null
+            ? routeProgress.getCurrentLegAnnotation().getMaxSpeed()
+            : null);
+        Double progressSpeed = routeProgress.getCurrentLegAnnotation() != null
+            ? routeProgress.getCurrentLegAnnotation().getSpeed()
+            : null;
+        if (progressSpeed != null) {
+            speedModel.setValue(progressSpeed);
+        }
     }
 
     void updateLocation(Location location) {
         router.updateLocation(location);
         navigationLocation.setValue(location);
+        Float locationSpeed = location.getSpeedMetersPerSeconds();
+        if (locationSpeed != null) {
+            speedModel.setValue((double) locationSpeed);
+        }
     }
 
     void sendEventFailedReroute(String errorMessage) {

@@ -5,8 +5,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/instructionBackground"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="?attr/navigationViewBannerBackground">
+    android:layout_height="wrap_content"
+    android:background="@drawable/instruction_background">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/maneuver_layout"

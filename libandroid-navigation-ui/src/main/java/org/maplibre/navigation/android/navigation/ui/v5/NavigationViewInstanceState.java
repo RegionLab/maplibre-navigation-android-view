@@ -5,57 +5,24 @@ import android.os.Parcelable;
 
 class NavigationViewInstanceState implements Parcelable {
 
-  private int recenterButtonVisibility;
   private boolean instructionViewVisible;
-  private boolean isWayNameVisible;
-  private boolean isMuted;
-  private String wayNameText;
 
-  NavigationViewInstanceState(int recenterButtonVisibility,
-                              boolean instructionViewVisible, boolean isWayNameVisible, String wayNameText,
-                              boolean isMuted) {
-    this.recenterButtonVisibility = recenterButtonVisibility;
+  NavigationViewInstanceState(boolean instructionViewVisible) {
     this.instructionViewVisible = instructionViewVisible;
-    this.isWayNameVisible = isWayNameVisible;
-    this.wayNameText = wayNameText;
-    this.isMuted = isMuted;
-  }
-
-  int getRecenterButtonVisibility() {
-    return recenterButtonVisibility;
   }
 
   boolean isInstructionViewVisible() {
     return instructionViewVisible;
   }
 
-  boolean isWayNameVisible() {
-    return isWayNameVisible;
-  }
-
-  String getWayNameText() {
-    return wayNameText;
-  }
-
-  boolean isMuted() {
-    return isMuted;
-  }
 
   private NavigationViewInstanceState(Parcel in) {
-    recenterButtonVisibility = in.readInt();
     instructionViewVisible = in.readByte() != 0;
-    isWayNameVisible = in.readByte() != 0;
-    isMuted = in.readByte() != 0;
-    wayNameText = in.readString();
   }
 
   @Override
   public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(recenterButtonVisibility);
     dest.writeByte((byte) (instructionViewVisible ? 1 : 0));
-    dest.writeByte((byte) (isWayNameVisible ? 1 : 0));
-    dest.writeByte((byte) (isMuted ? 1 : 0));
-    dest.writeString(wayNameText);
   }
 
   @Override
