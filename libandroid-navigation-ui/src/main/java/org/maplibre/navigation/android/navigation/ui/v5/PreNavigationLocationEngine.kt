@@ -16,6 +16,7 @@ import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.C
 class PreNavigationLocationEngine(
     private val locationEngine: LocationEngine,
     private val locationComponent: LocationComponent,
+    private val onLocationUpdate: ((Location) -> Unit)? = null,
     private val locationValidator: LocationValidator = LocationValidator(Defaults.LOCATION_ACCEPTABLE_ACCURACY_IN_METERS_THRESHOLD),//todo maybe provide accuracyThreshold through options
     private val backgroundScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
@@ -48,6 +49,7 @@ class PreNavigationLocationEngine(
             return
         }
         mainScope.launch {
+            onLocationUpdate?.invoke(rawLocation)
             locationComponent.forceLocationUpdate(rawLocation.toAndroidLocation())
         }
     }

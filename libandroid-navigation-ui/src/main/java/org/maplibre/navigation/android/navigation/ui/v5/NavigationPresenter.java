@@ -23,14 +23,11 @@ class NavigationPresenter {
     }
 
     void onRecenterClick() {
-        view.updateWayNameVisibility(true);
         view.resetCameraPosition();
-        view.hideRecenterBtn();
         isTrackingCamera = true;
     }
 
     void onCameraTrackingDismissed() {
-        view.updateWayNameVisibility(false);
         isTrackingCamera = false;
     }
 
@@ -55,24 +52,21 @@ class NavigationPresenter {
             resumeState = false;
         }
         view.updateNavigationMap(location);
+        Object speedObj = location.getSpeedMetersPerSeconds();
+        if (speedObj instanceof Float) {
+            view.updateSpeed(((Float) speedObj).doubleValue());
+        } else {
+            view.updateSpeed(0.0);
+        }
     }
 
     void onWayNameChanged(@NonNull String wayName) {
-        if (TextUtils.isEmpty(wayName)) {
-            view.updateWayNameVisibility(false);
-            return;
-        }
-        view.updateWayNameView(wayName);
-        view.updateWayNameVisibility(true);
     }
 
     void onNavigationStopped() {
-        view.updateWayNameVisibility(false);
     }
 
     void onRouteOverviewClick() {
-        view.updateWayNameVisibility(false);
         view.updateCameraRouteOverview();
-        view.showRecenterBtn();
     }
 }

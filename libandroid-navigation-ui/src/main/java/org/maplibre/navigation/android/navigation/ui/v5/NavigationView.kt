@@ -1,108 +1,93 @@
-package org.maplibre.navigation.android.navigation.ui.v5;
+package org.maplibre.navigation.android.navigation.ui.v5
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.res.Resources;
-import android.os.Bundle;
-import android.text.TextUtils;
-import android.util.AttributeSet;
-import android.view.View;
-import android.widget.ImageButton;
+import android.app.Activity
+import android.content.Context
+import android.os.Bundle
+import android.util.AttributeSet
+import android.widget.TextView
+import androidx.annotation.UiThread
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.isVisible
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.location.modes.RenderMode
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.OnMapReadyCallback
+import org.maplibre.android.maps.Style
+import org.maplibre.android.maps.Style.OnStyleLoaded
+import org.maplibre.android.plugins.annotation.OnSymbolClickListener
+import org.maplibre.android.plugins.annotation.Symbol
+import org.maplibre.android.plugins.annotation.SymbolManager
+import org.maplibre.android.plugins.annotation.SymbolOptions
+import org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_VIEWPORT
+import org.maplibre.navigation.android.navigation.ui.v5.camera.NavigationCamera
+import org.maplibre.navigation.android.navigation.ui.v5.instruction.ImageCreator
+import org.maplibre.navigation.android.navigation.ui.v5.instruction.InstructionView
+import org.maplibre.navigation.android.navigation.ui.v5.listeners.NavigationListener
+import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMap
+import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMapInstanceState
+import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
+import org.maplibre.navigation.android.navigation.ui.v5.utils.DistanceFormatter
+import org.maplibre.navigation.android.navigation.ui.v5.utils.LocaleUtils
+import org.maplibre.navigation.core.location.Location
+import org.maplibre.navigation.core.models.DirectionsRoute
+import org.maplibre.navigation.core.models.MaxSpeed
+import org.maplibre.navigation.core.models.UnitType
+import org.maplibre.navigation.core.navigation.MapLibreNavigation
+import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions
+import androidx.core.view.isGone
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.UiThread;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
-import androidx.core.view.ViewCompat;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleOwner;
-import androidx.lifecycle.LifecycleRegistry;
 
-import org.maplibre.android.camera.CameraPosition;
-import org.maplibre.android.location.modes.RenderMode;
-import org.maplibre.android.maps.MapLibreMap;
-import org.maplibre.android.maps.MapView;
-import org.maplibre.android.maps.OnMapReadyCallback;
-import org.maplibre.android.maps.Style;
-import org.maplibre.geojson.Point;
-import org.maplibre.navigation.android.navigation.ui.v5.camera.NavigationCamera;
-import org.maplibre.navigation.android.navigation.ui.v5.instruction.ImageCreator;
-import org.maplibre.navigation.android.navigation.ui.v5.instruction.InstructionView;
-import org.maplibre.navigation.android.navigation.ui.v5.instruction.NavigationAlertView;
-import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMap;
-import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMapInstanceState;
-import org.maplibre.navigation.android.navigation.ui.v5.map.WayNameView;
-import org.maplibre.navigation.android.navigation.ui.v5.summary.SummaryBottomSheet;
-import org.maplibre.navigation.android.navigation.ui.v5.utils.DistanceFormatter;
-import org.maplibre.navigation.android.navigation.ui.v5.utils.LocaleUtils;
-import org.maplibre.navigation.core.location.Location;
-import org.maplibre.navigation.core.location.replay.ReplayRouteLocationEngine;
-import org.maplibre.navigation.core.models.DirectionsRoute;
-import org.maplibre.navigation.core.models.RouteOptions;
-import org.maplibre.navigation.core.models.UnitType;
-import org.maplibre.navigation.core.navigation.MapLibreNavigation;
-import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions;
+class NavigationView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = -1
+) : CoordinatorLayout(context, attrs, defStyleAttr), LifecycleOwner, OnMapReadyCallback,
+    NavigationContract.View {
+    private lateinit var mapView: MapView
+    private lateinit var instructionView: InstructionView
+    private var speedLimitView: TextView? = null
+    private var speedView: TextView? = null
 
-/**
- * View that creates the drop-in UI.
- * <p>
- * Once started, this view will check if the {@link Activity} that inflated
- * it was launched with a {@link DirectionsRoute}.
- * <p>
- * Or, if not found, this view will look for a set of {@link Point} coordinates.
- * In the latter case, a new {@link DirectionsRoute} will be retrieved from {@link NavigationRoute}.
- * <p>
- * Once valid data is obtained, this activity will immediately begin navigation
- * with {@link MapLibreNavigation}.
- * <p>
- * If launched with the simulation boolean set to true, a {@link ReplayRouteLocationEngine}
- * will be initialized and begin pushing updates.
- * <p>
- * This activity requires user permissions ACCESS_FINE_LOCATION
- * and ACCESS_COARSE_LOCATION have already been granted.
- * <p>
- * A Mapbox access token must also be set by the developer (to initialize navigation).
- *
- * @since 0.7.0
- */
-public class NavigationView extends CoordinatorLayout implements LifecycleOwner, OnMapReadyCallback,
-        NavigationContract.View {
+    private lateinit var navigationPresenter: NavigationPresenter
+    private var navigationViewEventDispatcher: NavigationViewEventDispatcher? = null
+    private lateinit var navigationViewModel: NavigationViewModel
+    private var navigationMap: NavigationMapLibreMap? = null
+    private var preNavigationLocationEngine: PreNavigationLocationEngine? = null
+    private var navigationRoute: NavigationRoute? = null
+    private var onTrackingChangedListener: NavigationOnCameraTrackingChangedListener? = null
+    private var mapInstanceState: NavigationMapLibreMapInstanceState? = null
+    private var isMapInitialized = false
+    private var isSubscribed = false
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private var onMapReadyCallback: OnMapReadyCallback? = null
+    private var symbolManager: SymbolManager? = null
+    private var routeRequestExecutor: RouteRequestExecutor? = null
+    private var enableInstructionList = true
+    private var showSpeedLimitView = false
 
-    private static final String MAP_INSTANCE_STATE_KEY = "navgation_mapbox_map_instance_state";
-    private static final int INVALID_STATE = 0;
-    private MapView mapView;
-    private InstructionView instructionView;
-    private ImageButton cancelBtn;
-    private RecenterButton recenterBtn;
-    private WayNameView wayNameView;
-    private ImageButton routeOverviewBtn;
+    private var mapStyleUri: String? = null
+    private val instructionVisibilityNavigationListener = object : NavigationListener {
+        override fun onCancelNavigation() {
+            hideInstructionView()
+        }
 
-    private NavigationPresenter navigationPresenter;
-    private NavigationViewEventDispatcher navigationViewEventDispatcher;
-    private NavigationViewModel navigationViewModel;
-    private NavigationMapLibreMap navigationMap;
-    private OnNavigationReadyCallback onNavigationReadyCallback;
-    private NavigationOnCameraTrackingChangedListener onTrackingChangedListener;
-    private NavigationMapLibreMapInstanceState mapInstanceState;
-    private CameraPosition initialMapCameraPosition;
-    private boolean isMapInitialized;
-    private boolean isSubscribed;
-    private LifecycleRegistry lifecycleRegistry;
+        override fun onNavigationFinished() {
+            hideInstructionView()
+        }
 
-    public NavigationView(Context context) {
-        this(context, null);
+        override fun onNavigationRunning() {
+            showInstructionView()
+        }
     }
 
-    public NavigationView(Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs, -1);
-    }
-
-    public NavigationView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        ThemeSwitcher.setTheme(context, attrs);
-        initializeView();
+    init {
+        ThemeSwitcher.setTheme(context, attrs)
+        initializeView()
     }
 
     /**
@@ -110,19 +95,24 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
      *
      * @param savedInstanceState to restore state if not null
      */
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        mapView.onCreate(savedInstanceState);
-        updatePresenterState(savedInstanceState);
-        lifecycleRegistry = new LifecycleRegistry(this);
-        lifecycleRegistry.markState(Lifecycle.State.CREATED);
+    @JvmOverloads
+    fun onCreate(
+        savedInstanceState: Bundle?,
+        mapStyleUri: String? = null
+    ) {
+        mapView.onCreate(savedInstanceState)
+        updatePresenterState(savedInstanceState)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        this.mapStyleUri = mapStyleUri
+        routeRequestExecutor = RouteRequestExecutor(context)
     }
 
     /**
-     * Low memory must be reported so the {@link MapView}
+     * Low memory must be reported so the [MapView]
      * can react appropriately.
      */
-    public void onLowMemory() {
-        mapView.onLowMemory();
+    fun onLowMemory() {
+        mapView.onLowMemory()
     }
 
     /**
@@ -131,203 +121,158 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
      *
      * @return true if back press handled, false if not
      */
-    public boolean onBackPressed() {
-        return instructionView.handleBackPressed();
+    fun onBackPressed(): Boolean {
+        return instructionView.handleBackPressed()
     }
 
     /**
      * Used to store the bottomsheet state and re-center
-     * button visibility.  As well as anything the {@link MapView}
+     * button visibility.  As well as anything the [MapView]
      * needs to store in the bundle.
      *
      * @param outState to store state variables
      */
-    public void onSaveInstanceState(Bundle outState) {
-        boolean isWayNameVisible = wayNameView.getVisibility() == VISIBLE;
-        NavigationViewInstanceState navigationViewInstanceState = new NavigationViewInstanceState(recenterBtn.getVisibility(), instructionView.isShowingInstructionList(),
-                isWayNameVisible, wayNameView.retrieveWayNameText(), navigationViewModel.isMuted());
-        String instanceKey = getContext().getString(R.string.navigation_view_instance_state);
-        outState.putParcelable(instanceKey, navigationViewInstanceState);
-        outState.putBoolean(getContext().getString(R.string.navigation_running), navigationViewModel.isRunning());
-        mapView.onSaveInstanceState(outState);
-        saveNavigationMapInstanceState(outState);
+    fun onSaveInstanceState(outState: Bundle) {
+        val navigationViewInstanceState = NavigationViewInstanceState(
+            instructionView.isShowingInstructionList
+        )
+        val instanceKey = context.getString(R.string.navigation_view_instance_state)
+        outState.putParcelable(instanceKey, navigationViewInstanceState)
+        outState.putBoolean(
+            context.getString(R.string.navigation_running),
+            navigationViewModel.isRunning
+        )
+        mapView.onSaveInstanceState(outState)
+        saveNavigationMapInstanceState(outState)
     }
 
     /**
-     * Used to restore the bottomsheet state and re-center
-     * button visibility.  As well as the {@link MapView}
+     * Used to re-center
+     * button visibility.  As well as the [MapView]
      * position prior to rotation.
      *
      * @param savedInstanceState to extract state variables
      */
-    public void onRestoreInstanceState(Bundle savedInstanceState) {
-        String instanceKey = getContext().getString(R.string.navigation_view_instance_state);
-        NavigationViewInstanceState navigationViewInstanceState = savedInstanceState.getParcelable(instanceKey);
-        recenterBtn.setVisibility(navigationViewInstanceState.getRecenterButtonVisibility());
-        wayNameView.setVisibility(navigationViewInstanceState.isWayNameVisible() ? VISIBLE : INVISIBLE);
-        wayNameView.updateWayNameText(navigationViewInstanceState.getWayNameText());
-        updateInstructionListState(navigationViewInstanceState.isInstructionViewVisible());
-        updateInstructionMutedState(navigationViewInstanceState.isMuted());
-        mapInstanceState = savedInstanceState.getParcelable(MAP_INSTANCE_STATE_KEY);
+    fun onRestoreInstanceState(savedInstanceState: Bundle) {
     }
 
     /**
-     * Called to ensure the {@link MapView} is destroyed
+     * Called to ensure the [MapView] is destroyed
      * properly.
-     * <p>
-     * In an {@link Activity} this should be in {@link Activity#onDestroy()}.
-     * <p>
-     * In a {@link Fragment}, this should
-     * be in {@link Fragment#onDestroyView()}.
+     *
+     *
+     * In an [Activity] this should be in [Activity.onDestroy].
+     *
+     *
+     * In a [Fragment], this should
+     * be in [Fragment.onDestroyView].
      */
     @UiThread
-    public void onDestroy() {
-        shutdown();
-        lifecycleRegistry.markState(Lifecycle.State.DESTROYED);
+    fun onDestroy() {
+        shutdown()
+        stopNavigation()
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
     }
 
-    public void onStart() {
-        mapView.onStart();
-        if (navigationMap != null) {
-            navigationMap.onStart();
-        }
-        lifecycleRegistry.markState(Lifecycle.State.STARTED);
+    fun onStart() {
+        mapView.onStart()
+        navigationMap?.onStart()
+        lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
-    public void onResume() {
-        mapView.onResume();
-        lifecycleRegistry.markState(Lifecycle.State.RESUMED);
+    fun onResume() {
+        mapView.onResume()
+        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
     }
 
-    public void onPause() {
-        mapView.onPause();
+    fun onPause() {
+        mapView.onPause()
     }
 
-    public void onStop() {
-        mapView.onStop();
-        if (navigationMap != null) {
-            navigationMap.onStop();
-        }
-    }
-
-    @NonNull
-    @Override
-    public Lifecycle getLifecycle() {
-        return lifecycleRegistry;
+    fun onStop() {
+        mapView.onStop()
+        navigationMap?.onStop()
     }
 
     /**
      * Fired after the map is ready, this is our cue to finish
      * setting up the rest of the plugins / location engine.
-     * <p>
+     *
+     *
      * Also, we check for launch data (coordinates or route).
      *
      * @param mapLibreMap used for route, camera, and location UI
      * @since 0.6.0
      */
-    @Override
-    public void onMapReady(final MapLibreMap mapLibreMap) {
-        Style.Builder builder = new Style.Builder().fromUri(getContext().getString(R.string.map_style_light));
-
-        mapLibreMap.setStyle((builder), new Style.OnStyleLoaded() {
-            @Override
-            public void onStyleLoaded(@NonNull Style style) {
-                initializeNavigationMap(mapView, mapLibreMap);
-                initializeWayNameListener();
-                onNavigationReadyCallback.onNavigationReady(navigationViewModel.isRunning());
-                isMapInitialized = true;
-            }
-        });
-    }
-
-    @Override
-    public void resetCameraPosition() {
-        if (navigationMap != null) {
-            navigationMap.resetPadding();
-            navigationMap.resetCameraPositionWith(NavigationCamera.NAVIGATION_TRACKING_MODE_GPS);
+    override fun onMapReady(mapLibreMap: MapLibreMap) {
+        val onStyleLoaded = OnStyleLoaded { style ->
+            initializeSymbolManager(mapView, mapLibreMap, style)
+            initializeNavigationMap(mapView, mapLibreMap)
+            initializeWayNameListener()
+            initializePreNavigationLocationEngine(mapLibreMap)
+            onMapReadyCallback?.onMapReady(mapLibreMap)
+            isMapInitialized = true
         }
+
+        mapStyleUri?.let { mapLibreMap.setStyle(Style.Builder().fromUri(it), onStyleLoaded) }
+            ?: mapLibreMap.setStyle(ThemeSwitcher.retrieveMapStyle(context), onStyleLoaded)
     }
 
-    @Override
-    public void showRecenterBtn() {
-        recenterBtn.show();
+    fun startNavigation(request: NavigationRequest) {
+        navigationRoute = routeRequestExecutor?.request(request, ::startNavigation)
     }
 
-    @Override
-    public void hideRecenterBtn() {
-        recenterBtn.hide();
+    private fun startNavigation(
+        routes: List<DirectionsRoute>,
+        navigationOptions: MapLibreNavigationOptions
+    ) {
+        preNavigationLocationEngine?.stop()
+        val route = routes.first()
+        navigationMap?.drawRoutes(routes)
+        val options = NavigationViewOptions.builder()
+        options.directionsRoute(route)
+        options.navigationOptions(navigationOptions)
+        options.navigationListener(instructionVisibilityNavigationListener)
+        showInstructionView()
+        initializeNavigation(options.build())
     }
 
-    @Override
-    public boolean isRecenterButtonVisible() {
-        return recenterBtn.getVisibility() == View.VISIBLE;
+    override fun resetCameraPosition() {
+        navigationMap?.resetPadding()
+        navigationMap?.resetCameraPositionWith(NavigationCamera.NAVIGATION_TRACKING_MODE_GPS)
     }
 
-    @Override
-    public void drawRoute(DirectionsRoute directionsRoute) {
-        if (navigationMap != null) {
-            navigationMap.drawRoute(directionsRoute);
-        }
+    override fun drawRoute(directionsRoute: DirectionsRoute) {
+        navigationMap?.drawRoute(directionsRoute)
+    }
+
+    fun addSymbol(symbolOptions: SymbolOptions): Symbol {
+        return requireSymbolManager().create(symbolOptions)
+    }
+
+    fun removeSymbol(symbol: Symbol) {
+        requireSymbolManager().delete(symbol)
+    }
+
+    fun addOnSymbolClickListener(listener: OnSymbolClickListener) {
+        requireSymbolManager().addClickListener(listener)
+    }
+
+    fun updateSymbol(symbol: Symbol) {
+        requireSymbolManager().update(symbol)
     }
 
     /**
-     * Provides the current visibility of the way name view.
-     *
-     * @return true if visible, false if not visible
-     */
-    public boolean isWayNameVisible() {
-        return wayNameView.getVisibility() == VISIBLE;
-    }
-
-    /**
-     * Updates the text of the way name view below the
-     * navigation icon.
-     * <p>
-     * If you'd like to use this method without being overridden by the default way names
-     * values we provide, please disabled auto-query with
-     * {@link NavigationMapLibreMap#updateWaynameQueryMap(boolean)}.
-     *
-     * @param wayName to update the view
-     */
-    @Override
-    public void updateWayNameView(@NonNull String wayName) {
-        wayNameView.updateWayNameText(wayName);
-    }
-
-    /**
-     * Updates the visibility of the way name view that is show below
-     * the navigation icon.
-     * <p>
-     * If you'd like to use this method without being overridden by the default visibility values
-     * values we provide, please disabled auto-query with
-     * {@link NavigationMapLibreMap#updateWaynameQueryMap(boolean)}.
-     *
-     * @param isVisible true to show, false to hide
-     */
-    @Override
-    public void updateWayNameVisibility(boolean isVisible) {
-        if (TextUtils.isEmpty(wayNameView.retrieveWayNameText())) {
-            isVisible = false;
-        }
-        wayNameView.updateVisibility(isVisible);
-        if (navigationMap != null) {
-            navigationMap.updateWaynameQueryMap(isVisible);
-        }
-    }
-
-    /**
-     * Used when starting this {@link android.app.Activity}
+     * Used when starting this [android.app.Activity]
      * for the first time.
-     * <p>
-     * Zooms to the beginning of the {@link DirectionsRoute}.
+     *
+     *
+     * Zooms to the beginning of the [DirectionsRoute].
      *
      * @param directionsRoute where camera should move to
      */
-    @Override
-    public void startCamera(DirectionsRoute directionsRoute) {
-        if (navigationMap != null) {
-            navigationMap.startCamera(directionsRoute);
-        }
+    override fun startCamera(directionsRoute: DirectionsRoute) {
+        navigationMap?.startCamera(directionsRoute)
     }
 
     /**
@@ -336,35 +281,30 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
      *
      * @param location where the camera should move to
      */
-    @Override
-    public void resumeCamera(Location location) {
-        if (navigationMap != null) {
-            navigationMap.resumeCamera(location);
-        }
+    override fun resumeCamera(location: Location) {
+        navigationMap?.resumeCamera(location)
     }
 
-    @Override
-    public void updateNavigationMap(Location location) {
-        if (navigationMap != null) {
-            navigationMap.updateLocation(location);
-        }
+    override fun updateNavigationMap(location: Location) {
+        navigationMap?.updateLocation(location)
     }
 
-    @Override
-    public void updateCameraRouteOverview() {
-        if (navigationMap != null) {
-            int[] padding = buildRouteOverviewPadding(getContext());
-            navigationMap.showRouteOverview(padding);
+    override fun updateSpeed(speed: Double) {
+        val speedTextView = speedView ?: return
+        if (!showSpeedLimitView) {
+            speedTextView.visibility = GONE
+            return
         }
+        val safeSpeed = if (speed.isFinite() && speed >= 0.0) speed else 0.0
+        val speedKmH = (safeSpeed * 3.6).toInt()
+        speedTextView.text = speedKmH.toString()
+        speedTextView.visibility = VISIBLE
+        updateSpeedViewTranslation()
     }
 
-    /**
-     * Should be called when this view is completely initialized.
-     *
-     * @param options with containing route / coordinate data
-     */
-    public void startNavigation(NavigationViewOptions options) {
-        initializeNavigation(options);
+    override fun updateCameraRouteOverview() {
+        val padding = buildRouteOverviewPadding(context)
+        navigationMap?.showRouteOverview(padding)
     }
 
     /**
@@ -372,300 +312,391 @@ public class NavigationView extends CoordinatorLayout implements LifecycleOwner,
      *
      * @since 0.16.0
      */
-    public void stopNavigation() {
-        navigationPresenter.onNavigationStopped();
-        navigationViewModel.stopNavigation();
+    @UiThread
+    fun stopNavigation() {
+        preNavigationLocationEngine?.start()
+        routeRequestExecutor?.cancel()
+        navigationRoute = null
+        hideInstructionView()
+        navigationPresenter.onNavigationStopped()
+        navigationViewModel.stopNavigation()
     }
 
-    /**
-     * Should be called after {@link NavigationView#onCreate(Bundle)}.
-     * <p>
-     * This method adds the {@link OnNavigationReadyCallback},
-     * which will fire the ready events for this view.
-     *
-     * @param onNavigationReadyCallback to be set to this view
-     */
-    public void initialize(OnNavigationReadyCallback onNavigationReadyCallback) {
-        this.onNavigationReadyCallback = onNavigationReadyCallback;
+
+    fun initialize(onNavigationReadyCallback: OnNavigationReadyCallback) {
+        this.onMapReadyCallback = onMapReadyCallback
         if (!isMapInitialized) {
-            mapView.getMapAsync(this);
-        } else {
-            onNavigationReadyCallback.onNavigationReady(navigationViewModel.isRunning());
+            mapView.getMapAsync(this)
+            navigationViewModel.initializeNavigation(false)
+        }
+    }
+
+    fun initialize(
+        onNavigationReadyCallback: OnNavigationReadyCallback,
+        initialMapCameraPosition: CameraPosition?
+    ) {
+        this.onMapReadyCallback = onMapReadyCallback
+        // initialMapCameraPosition is not yet supported in this Kotlin version but we add the signature for compatibility
+        if (!isMapInitialized) {
+            mapView.getMapAsync(this)
+            navigationViewModel.initializeNavigation(false)
         }
     }
 
     /**
-     * Should be called after {@link NavigationView#onCreate(Bundle)}.
-     * <p>
-     * This method adds the {@link OnNavigationReadyCallback},
-     * which will fire the ready events for this view.
-     * <p>
-     * This method also accepts a {@link CameraPosition} that will be set as soon as the map is
-     * ready.  Note, this position is ignored during rotation in favor of the last known map position.
-     *
-     * @param onNavigationReadyCallback to be set to this view
-     * @param initialMapCameraPosition  to be shown once the map is ready
+     * Should be called after [NavigationView.onCreate].
      */
-    public void initialize(OnNavigationReadyCallback onNavigationReadyCallback,
-                           @NonNull CameraPosition initialMapCameraPosition) {
-        this.onNavigationReadyCallback = onNavigationReadyCallback;
-        this.initialMapCameraPosition = initialMapCameraPosition;
+    fun initialize(
+        shouldSimulateRoute: Boolean,
+        onMapReadyCallback: OnMapReadyCallback,
+    ) {
+        this.onMapReadyCallback = onMapReadyCallback
         if (!isMapInitialized) {
-            mapView.getMapAsync(this);
-        } else {
-            onNavigationReadyCallback.onNavigationReady(navigationViewModel.isRunning());
+            mapView.getMapAsync(this)
+            navigationViewModel.initializeNavigation(shouldSimulateRoute)
         }
+    }
+
+
+    fun enableNavigatorSound(enabled: Boolean) {
+        navigationViewModel.isMuted = !enabled
     }
 
     /**
      * Gives the ability to manipulate the map directly for anything that might not currently be
      * supported. This returns null until the view is initialized.
-     * <p>
-     * The {@link NavigationMapLibreMap} gives direct access to the map UI (location marker, route, etc.).
      *
-     * @return navigation MapLibre map object, or null if view has not been initialized
+     *
+     * The [NavigationMapLibreMap] gives direct access to the map UI (location marker, route, etc.).
+     *
+     * @return navigation mapbox map object, or null if view has not been initialized
      */
-    @Nullable
-    public NavigationMapLibreMap retrieveNavigationmapLibreMap() {
-        return navigationMap;
+    fun retrieveNavigationMapLibreMap(): NavigationMapLibreMap? {
+        return navigationMap
     }
 
     /**
-     * Returns the instance of {@link MapLibreNavigation} powering the {@link NavigationView}
+     * Returns the instance of [MapLibreNavigation] powering the [NavigationView]
      * once navigation has started.  Will return null if navigation has not been started with
-     * {@link NavigationView#startNavigation(NavigationViewOptions)}.
+     * [NavigationView.startNavigation].
      *
-     * @return MapLibre navigation, or null if navigation has not started
+     * @return mapbox navigation, or null if navigation has not started
      */
-    @Nullable
-    public MapLibreNavigation retrieveMapLibreNavigation() {
-        return navigationViewModel.retrieveNavigation();
+    fun retrieveMapLibreNavigation(): MapLibreNavigation? {
+        return navigationViewModel.retrieveNavigation()
     }
 
-    /**
-     * Returns the sound button used for muting instructions
-     *
-     * @return sound button
-     */
-    public NavigationButton retrieveSoundButton() {
-        return instructionView.retrieveSoundButton();
+    fun showInstructionView() {
+        instructionView.isVisible = true
     }
 
-
-    /**
-     * Returns the re-center button for recentering on current location
-     *
-     * @return recenter button
-     */
-    public NavigationButton retrieveRecenterButton() {
-        return recenterBtn;
+    fun hideInstructionView() {
+        instructionView.isVisible = false
     }
 
-    /**
-     * Returns the {@link NavigationAlertView} that is shown during off-route events with
-     * "Report a Problem" text.
-     *
-     * @return alert view that is used in the instruction view
-     */
-    public NavigationAlertView retrieveAlertView() {
-        return instructionView.retrieveAlertView();
+    fun configureUi(
+        enableInstructionList: Boolean = true,
+        showSpeedLimitView: Boolean = false
+    ) {
+        this.enableInstructionList = enableInstructionList
+        this.showSpeedLimitView = showSpeedLimitView
+        applyUiConfiguration()
     }
 
-    private void initializeView() {
-        inflate(getContext(), R.layout.navigation_view_layout, this);
-        bind();
-        initializeNavigationViewModel();
-        initializeNavigationEventDispatcher();
-        initializeNavigationPresenter();
-        initializeInstructionListListener();
+    private fun initializeView() {
+        inflate(context, R.layout.navigation_view_layout, this)
+        bind()
+        applyUiConfiguration()
+        initializeNavigationViewModel(context)
+        initializeNavigationEventDispatcher()
+        initializeNavigationPresenter()
+        initializeInstructionListListener()
     }
 
-    private void bind() {
-        mapView = findViewById(R.id.navigationMapView);
-        instructionView = findViewById(R.id.instructionView);
-        ViewCompat.setElevation(instructionView, 10);
-        cancelBtn = findViewById(R.id.cancelBtn);
-        recenterBtn = findViewById(R.id.recenterBtn);
-        wayNameView = findViewById(R.id.wayNameView);
-        routeOverviewBtn = findViewById(R.id.routeOverviewBtn);
+    private fun bind() {
+        mapView = findViewById(R.id.navigationMapView)
+        instructionView = findViewById(R.id.instructionView)
+        instructionView.let {
+            ViewCompat.setElevation(it, 10f)
+        }
+        speedLimitView = findViewById(R.id.speedLimitView)
+        speedView = findViewById(R.id.speedView)
     }
 
-    private void initializeNavigationViewModel() {
+    private fun initializeNavigationViewModel(context: Context) {
         try {
-            navigationViewModel = new NavigationViewModel(getContext());
-        } catch (ClassCastException exception) {
-            throw new ClassCastException("Please ensure that the provided Context is a valid FragmentActivity");
+            navigationViewModel = NavigationViewModel(context)
+        } catch (exception: ClassCastException) {
+            throw ClassCastException("Please ensure that the provided Context is a valid FragmentActivity")
         }
     }
 
-    private void initializeNavigationEventDispatcher() {
-        navigationViewEventDispatcher = new NavigationViewEventDispatcher();
-        navigationViewModel.initializeEventDispatcher(navigationViewEventDispatcher);
+    private fun initializeNavigationEventDispatcher() {
+        navigationViewEventDispatcher = NavigationViewEventDispatcher()
+        navigationViewModel.initializeEventDispatcher(navigationViewEventDispatcher)
     }
 
-    private void initializeInstructionListListener() {
-        instructionView.setInstructionListListener(new NavigationInstructionListListener(navigationPresenter,
-                navigationViewEventDispatcher));
+    private fun initializeInstructionListListener() {
+        instructionView.setInstructionListListener(
+            NavigationInstructionListListener(
+                navigationPresenter,
+                navigationViewEventDispatcher
+            )
+        )
     }
 
-    private void initializeNavigationMap(MapView mapView, MapLibreMap map) {
-        if (initialMapCameraPosition != null) {
-            map.setCameraPosition(initialMapCameraPosition);
-        }
-        navigationMap = new NavigationMapLibreMap(mapView, map);
-        navigationMap.updateLocationLayerRenderMode(RenderMode.GPS);
+    private fun initializeNavigationMap(mapView: MapView, map: MapLibreMap) {
+        navigationMap = NavigationMapLibreMap(mapView, map)
+        navigationMap?.updateLocationLayerRenderMode(RenderMode.GPS)
         if (mapInstanceState != null) {
-            navigationMap.restoreFrom(mapInstanceState);
-            return;
+            navigationMap?.restoreFrom(mapInstanceState)
+            return
         }
     }
 
-    private void initializeWayNameListener() {
-        NavigationViewWayNameListener wayNameListener = new NavigationViewWayNameListener(navigationPresenter);
-        navigationMap.addOnWayNameChangedListener(wayNameListener);
-    }
-
-    private void saveNavigationMapInstanceState(Bundle outState) {
-        if (navigationMap != null) {
-            navigationMap.saveStateWith(MAP_INSTANCE_STATE_KEY, outState);
+    private fun initializeSymbolManager(mapView: MapView, mapLibreMap: MapLibreMap, style: Style) {
+        symbolManager = SymbolManager(mapView, mapLibreMap, style).apply {
+            iconAllowOverlap = true
+            iconRotationAlignment = ICON_ROTATION_ALIGNMENT_VIEWPORT
         }
     }
 
-    private void updateInstructionListState(boolean visible) {
+    private fun initializeWayNameListener() {
+        navigationMap?.updateWaynameQueryMap(false)
+    }
+
+    private fun initializePreNavigationLocationEngine(map: MapLibreMap) {
+        val locationEngine = navigationViewModel.retrieveNavigation()?.locationEngine ?: return
+        preNavigationLocationEngine = PreNavigationLocationEngine(
+            locationEngine = locationEngine,
+            locationComponent = map.locationComponent,
+            onLocationUpdate = { location ->
+                updateSpeed(location.speedMetersPerSeconds?.toDouble() ?: 0.0)
+            }
+        )
+        preNavigationLocationEngine?.start()
+    }
+
+
+    private fun saveNavigationMapInstanceState(outState: Bundle) {
+        navigationMap?.saveStateWith(MAP_INSTANCE_STATE_KEY, outState)
+    }
+
+    private fun updateInstructionListState(visible: Boolean) {
+        if (!enableInstructionList) {
+            instructionView.hideInstructionList()
+            return
+        }
         if (visible) {
-            instructionView.showInstructionList();
+            instructionView.showInstructionList()
         } else {
-            instructionView.hideInstructionList();
+            instructionView.hideInstructionList()
         }
     }
 
-    private void updateInstructionMutedState(boolean isMuted) {
-        if (isMuted) {
-            ((SoundButton) instructionView.retrieveSoundButton()).soundFabOff();
+    private fun updateInstructionMutedState(isMuted: Boolean) {
+    }
+
+    private fun buildRouteOverviewPadding(context: Context): IntArray {
+        val resources = context.resources
+        val leftRightPadding =
+            resources.getDimension(R.dimen.route_overview_left_right_padding).toInt()
+        val paddingBuffer = resources.getDimension(R.dimen.route_overview_buffer_padding).toInt()
+        val instructionHeight =
+            (resources.getDimension(R.dimen.instruction_layout_height) + paddingBuffer).toInt()
+        val summaryHeight = resources.getDimension(R.dimen.summary_bottomsheet_height).toInt()
+        return intArrayOf(leftRightPadding, instructionHeight, leftRightPadding, summaryHeight)
+    }
+
+    private val isChangingConfigurations: Boolean
+        get() {
+            return try {
+                (context as Activity).isChangingConfigurations
+            } catch (exception: ClassCastException) {
+                false
+            }
         }
+
+    private fun initializeNavigationPresenter() {
+        navigationPresenter = NavigationPresenter(this)
     }
 
-    private int[] buildRouteOverviewPadding(Context context) {
-        Resources resources = context.getResources();
-        int leftRightPadding = (int) resources.getDimension(R.dimen.route_overview_left_right_padding);
-        int paddingBuffer = (int) resources.getDimension(R.dimen.route_overview_buffer_padding);
-        int instructionHeight = (int) (resources.getDimension(R.dimen.instruction_layout_height) + paddingBuffer);
-        int summaryHeight = (int) resources.getDimension(R.dimen.summary_bottomsheet_height);
-        return new int[]{leftRightPadding, instructionHeight, leftRightPadding, summaryHeight};
-    }
-
-    private boolean isChangingConfigurations() {
-        try {
-            return ((FragmentActivity) getContext()).isChangingConfigurations();
-        } catch (ClassCastException exception) {
-            throw new ClassCastException("Please ensure that the provided Context is a valid FragmentActivity");
-        }
-    }
-
-    private void initializeNavigationPresenter() {
-        navigationPresenter = new NavigationPresenter(this);
-    }
-
-    private void updatePresenterState(@Nullable Bundle savedInstanceState) {
+    private fun updatePresenterState(savedInstanceState: Bundle?) {
         if (savedInstanceState != null) {
-            String navigationRunningKey = getContext().getString(R.string.navigation_running);
-            boolean resumeState = savedInstanceState.getBoolean(navigationRunningKey);
-            navigationPresenter.updateResumeState(resumeState);
+            val navigationRunningKey = context.getString(R.string.navigation_running)
+            val resumeState = savedInstanceState.getBoolean(navigationRunningKey)
+            navigationPresenter.updateResumeState(resumeState)
         }
     }
 
-    private void initializeNavigation(NavigationViewOptions options) {
-        establish(options);
-        navigationViewModel.initialize(options);
-        initializeNavigationListeners(options, navigationViewModel);
-        setupNavigationmapLibreMap(options);
+    private fun initializeNavigation(options: NavigationViewOptions) {
+        establish(options)
+        navigationViewModel.initialize(options)
+        initializeNavigationListeners(options, navigationViewModel)
+        setupNavigationMapLibreMap(options)
 
         if (!isSubscribed) {
-            initializeClickListeners();
-            initializeOnCameraTrackingChangedListener();
-            subscribeViewModels();
+            initializeOnCameraTrackingChangedListener()
+            subscribeViewModels()
         }
     }
 
-    private void initializeClickListeners() {
-        cancelBtn.setOnClickListener(new CancelBtnClickListener(navigationViewEventDispatcher));
-        recenterBtn.addOnClickListener(new RecenterBtnClickListener(navigationPresenter));
-        routeOverviewBtn.setOnClickListener(new RouteOverviewBtnClickListener(navigationPresenter));
+    private fun initializeOnCameraTrackingChangedListener() {
+        onTrackingChangedListener =
+            NavigationOnCameraTrackingChangedListener(navigationPresenter)
+        navigationMap?.addOnCameraTrackingChangedListener(onTrackingChangedListener)
     }
 
-    private void initializeOnCameraTrackingChangedListener() {
-        onTrackingChangedListener = new NavigationOnCameraTrackingChangedListener(navigationPresenter);
-        navigationMap.addOnCameraTrackingChangedListener(onTrackingChangedListener);
+    private fun establish(options: NavigationViewOptions) {
+        val localeUtils = LocaleUtils()
+        establishDistanceFormatter(localeUtils, options)
     }
 
-    private void establish(NavigationViewOptions options) {
-        LocaleUtils localeUtils = new LocaleUtils();
-        establishDistanceFormatter(localeUtils, options);
-        establishTimeFormat(options);
+    private fun establishDistanceFormatter(
+        localeUtils: LocaleUtils,
+        options: NavigationViewOptions
+    ) {
+        val unitType = establishUnitType(localeUtils, options)
+        val language = establishLanguage(localeUtils, options)
+        val roundingIncrement = establishRoundingIncrement(options)
+        val distanceFormatter = DistanceFormatter(context, language, unitType, roundingIncrement)
+
+        instructionView.setDistanceFormatter(distanceFormatter)
     }
 
-    private void establishDistanceFormatter(LocaleUtils localeUtils, NavigationViewOptions options) {
-        UnitType unitType = establishUnitType(localeUtils, options);
-        String language = establishLanguage(localeUtils, options);
-        MapLibreNavigationOptions.RoundingIncrement roundingIncrement = establishRoundingIncrement(options);
-        DistanceFormatter distanceFormatter = new DistanceFormatter(getContext(), language, unitType, roundingIncrement);
-
-        instructionView.setDistanceFormatter(distanceFormatter);
+    private fun establishRoundingIncrement(navigationViewOptions: NavigationViewOptions): MapLibreNavigationOptions.RoundingIncrement {
+        val mapboxNavigationOptions = navigationViewOptions.navigationOptions()
+        return mapboxNavigationOptions.roundingIncrement
     }
 
-    private MapLibreNavigationOptions.RoundingIncrement establishRoundingIncrement(NavigationViewOptions navigationViewOptions) {
-        MapLibreNavigationOptions mapLibreNavigationOptions = navigationViewOptions.navigationOptions();
-        return mapLibreNavigationOptions.getRoundingIncrement();
+    private fun establishLanguage(
+        localeUtils: LocaleUtils,
+        options: NavigationViewOptions
+    ): String {
+        return localeUtils.getNonEmptyLanguage(context, options.directionsRoute().voiceLanguage)
     }
 
-    private String establishLanguage(LocaleUtils localeUtils, NavigationViewOptions options) {
-        return localeUtils.getNonEmptyLanguage(getContext(), options.directionsRoute().getVoiceLanguage());
+    private fun establishUnitType(
+        localeUtils: LocaleUtils,
+        options: NavigationViewOptions
+    ): UnitType {
+        val routeOptions = options.directionsRoute().routeOptions
+        val voiceUnits = routeOptions?.voiceUnits
+        return localeUtils.retrieveNonNullUnitType(context, voiceUnits)
     }
 
-    private UnitType establishUnitType(LocaleUtils localeUtils, NavigationViewOptions options) {
-        RouteOptions routeOptions = options.directionsRoute().getRouteOptions();
-        UnitType voiceUnits = routeOptions == null ? null : routeOptions.getVoiceUnits();
-        return localeUtils.retrieveNonNullUnitType(getContext(), voiceUnits);
+    private fun initializeNavigationListeners(
+        options: NavigationViewOptions,
+        navigationViewModel: NavigationViewModel?
+    ) {
+        navigationMap?.addProgressChangeListener(navigationViewModel?.retrieveNavigation()!!)
+        navigationViewEventDispatcher?.initializeListeners(options, navigationViewModel)
     }
 
-    private void establishTimeFormat(NavigationViewOptions options) {
-        int timeFormatType = options.navigationOptions().getTimeFormatType().getId();
-    }
-
-    private void initializeNavigationListeners(NavigationViewOptions options, NavigationViewModel navigationViewModel) {
-        navigationMap.addProgressChangeListener(navigationViewModel.retrieveNavigation());
-        navigationViewEventDispatcher.initializeListeners(options, navigationViewModel);
-    }
-
-    private void setupNavigationmapLibreMap(NavigationViewOptions options) {
-        navigationMap.updateWaynameQueryMap(options.waynameChipEnabled());
+    private fun setupNavigationMapLibreMap(options: NavigationViewOptions) {
+        navigationMap?.updateWaynameQueryMap(false)
     }
 
     /**
-     * Subscribes the {@link InstructionView} and {@link SummaryBottomSheet} to the {@link NavigationViewModel}.
-     * <p>
-     * Then, creates an instance of {@link NavigationViewSubscriber}, which takes a presenter.
-     * <p>
+     * Subscribes the [InstructionView] to the [NavigationViewModel].
+     *
+     *
+     * Then, creates an instance of [NavigationViewSubscriber], which takes a presenter.
+     *
+     *
      * The subscriber then subscribes to the view models, setting up the appropriate presenter / listener
-     * method calls based on the {@link androidx.lifecycle.LiveData} updates.
+     * method calls based on the [androidx.lifecycle.LiveData] updates.
      */
-    private void subscribeViewModels() {
-        instructionView.subscribe(this, navigationViewModel);
-
-        new NavigationViewSubscriber(this, navigationViewModel, navigationPresenter).subscribe();
-        isSubscribed = true;
-    }
-
-    @UiThread
-    private void shutdown() {
-        if (navigationMap != null) {
-            navigationMap.removeOnCameraTrackingChangedListener(onTrackingChangedListener);
-            navigationMap.onDestroy();
+    private fun subscribeViewModels() {
+        instructionView.subscribe(this, navigationViewModel)
+        navigationViewModel.speedLimitModel.observe(this) { speedLimit ->
+            updateSpeedLimit(speedLimit)
         }
-        navigationViewEventDispatcher.onDestroy(navigationViewModel.retrieveNavigation());
-        mapView.onDestroy();
-        navigationViewModel.onDestroy(isChangingConfigurations());
-        ImageCreator.getInstance().shutdown();
-        navigationMap = null;
+        navigationViewModel.speedModel.observe(this) { speed ->
+            updateSpeed(speed ?: 0.0)
+        }
+
+        NavigationViewSubscriber(this, navigationViewModel, navigationPresenter).subscribe()
+        isSubscribed = true
     }
+
+    private fun shutdown() {
+        navigationMap?.removeOnCameraTrackingChangedListener(onTrackingChangedListener)
+        navigationMap?.onDestroy()
+        preNavigationLocationEngine?.stop()
+        routeRequestExecutor?.cancel()
+        routeRequestExecutor = null
+
+        navigationViewEventDispatcher?.onDestroy(navigationViewModel.retrieveNavigation())
+        mapView.onDestroy()
+        navigationViewModel.onDestroy(isChangingConfigurations)
+        ImageCreator.getInstance().shutdown()
+        navigationMap = null
+    }
+
+    private fun requireSymbolManager(): SymbolManager {
+        return symbolManager ?: throw IllegalStateException(
+            "Map is not initialized yet. Call initialize() and wait for onMapReady callback."
+        )
+    }
+
+    private fun applyUiConfiguration() {
+        if (::instructionView.isInitialized) {
+            instructionView.setInstructionListEnabled(enableInstructionList)
+        }
+        speedLimitView?.visibility = if (showSpeedLimitView) VISIBLE else GONE
+        speedView?.visibility = if (showSpeedLimitView) VISIBLE else GONE
+        if (!showSpeedLimitView) {
+            speedLimitView?.text = ""
+            speedView?.text = ""
+        } else {
+            if (speedLimitView?.text.isNullOrBlank()) {
+                speedLimitView?.text = "--"
+            }
+            if (speedView?.text.isNullOrBlank()) {
+                speedView?.text = "0"
+            }
+        }
+        updateSpeedViewTranslation()
+    }
+
+    override fun updateSpeedLimit(maxSpeed: MaxSpeed?) {
+        val speedLimitView = speedLimitView ?: return
+        if (!showSpeedLimitView) {
+            speedLimitView.visibility = GONE
+            speedLimitView.text = ""
+            return
+        }
+        val value = when {
+            maxSpeed?.none == true -> "∞"
+            maxSpeed?.unknown == true -> "--"
+            maxSpeed?.speed != null -> maxSpeed.speed.toString()
+            else -> null
+        }
+        speedLimitView.text = value
+        speedLimitView.visibility = if (value == null) GONE else VISIBLE
+        updateSpeedViewTranslation()
+    }
+
+    private fun updateSpeedViewTranslation() {
+        val speedLimitView = speedLimitView ?: return
+        val speedView = speedView ?: return
+
+        if (speedLimitView.isGone) {
+            speedView.translationX = 0f
+            speedView.translationY = 0f
+        } else {
+            val density = resources.displayMetrics.density
+            speedView.translationX = 22f * density
+            speedView.translationY = -22f * density
+        }
+    }
+
+    companion object {
+        private const val MAP_INSTANCE_STATE_KEY = "navigation_maplibre_map_instance_state"
+    }
+
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+
 }

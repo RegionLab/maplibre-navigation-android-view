@@ -123,6 +123,10 @@
         <item name="navigationViewDestinationMarker">@drawable/map_marker_light</item>
 
         <item name="navigationViewRouteOverviewDrawable">@drawable/ic_route_preview</item>
+        <item name="navigationViewSpeedLimitBackground">@drawable/navigation_speed_limit_red_background</item>
+        <item name="navigationViewSpeedLimitTextColor">@android:color/black</item>
+        <item name="navigationViewSpeedBackground">@drawable/navigation_speed_limit_background</item>
+        <item name="navigationViewSpeedTextColor">@android:color/black</item>
 
         <item name="navigationViewMapStyle">@string/navigation_guidance_day</item>
     </style>
@@ -153,6 +157,10 @@
         <item name="navigationViewDestinationMarker">@drawable/map_marker_dark</item>
 
         <item name="navigationViewRouteOverviewDrawable">@drawable/ic_route_preview_dark</item>
+        <item name="navigationViewSpeedLimitBackground">@drawable/navigation_speed_limit_red_background</item>
+        <item name="navigationViewSpeedLimitTextColor">@android:color/black</item>
+        <item name="navigationViewSpeedBackground">@drawable/navigation_speed_limit_background</item>
+        <item name="navigationViewSpeedTextColor">@android:color/black</item>
 
         <item name="navigationViewMapStyle">@string/navigation_guidance_night</item>
     </style>
