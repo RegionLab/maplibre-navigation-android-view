@@ -28,6 +28,7 @@ class MapFpsDelegate implements OnTrackingModeChangedListener, OnTrackingModeTra
     private int maxFpsThreshold = DEFAULT_MAX_FPS_THRESHOLD;
     private boolean isTracking = true;
     private boolean isEnabled = true;
+    private int currentMaxFps = DEVICE_MAX_FPS;
 
     MapFpsDelegate(MapView mapView, MapBatteryMonitor batteryMonitor) {
         this.mapView = mapView;
@@ -79,12 +80,12 @@ class MapFpsDelegate implements OnTrackingModeChangedListener, OnTrackingModeTra
     }
 
     void adjustFpsFor(RouteProgress routeProgress) {
-        if (!isEnabled || !isTracking) {
+        if (!isEnabled || !isTracking || routeProgress == null) {
             return;
         }
 
         int maxFps = determineMaxFpsFrom(routeProgress, mapView.getContext());
-        mapView.setMaximumFps(maxFps);
+        applyMaxFpsIfChanged(maxFps);
     }
 
     private void updateCameraTracking(@NavigationCamera.TrackingMode int trackingMode) {
@@ -95,12 +96,17 @@ class MapFpsDelegate implements OnTrackingModeChangedListener, OnTrackingModeTra
     private void resetMaxFps(boolean shouldReset) {
         if (shouldReset) {
             mapView.setMaximumFps(DEVICE_MAX_FPS);
+            currentMaxFps = DEVICE_MAX_FPS;
         }
     }
 
     private int determineMaxFpsFrom(RouteProgress routeProgress, Context context) {
-        final boolean isPluggedIn = batteryMonitor.isPluggedIn(context);
         RouteLegProgress routeLegProgress = routeProgress.getCurrentLegProgress();
+        if (routeLegProgress == null || routeLegProgress.getCurrentStep() == null
+            || routeLegProgress.getCurrentStep().getManeuver() == null) {
+            return LOW_POWER_MAX_FPS;
+        }
+        final boolean isPluggedIn = batteryMonitor.isPluggedIn(context);
 
         if (isPluggedIn) {
             return LOW_POWER_MAX_FPS;
@@ -125,10 +131,20 @@ class MapFpsDelegate implements OnTrackingModeChangedListener, OnTrackingModeTra
   }
 
     private boolean validLowFpsDuration(RouteLegProgress routeLegProgress) {
+        if (routeLegProgress.getCurrentStepProgress() == null) {
+            return false;
+        }
         final double expectedStepDuration = routeLegProgress.getCurrentStep().getDuration();
         final double durationUntilNextManeuver = routeLegProgress.getCurrentStepProgress().getDurationRemaining();
         final double durationSincePreviousManeuver = expectedStepDuration - durationUntilNextManeuver;
         return durationUntilNextManeuver > VALID_DURATION_IN_SECONDS_UNTIL_NEXT_MANEUVER
                 && durationSincePreviousManeuver > VALID_DURATION_IN_SECONDS_SINCE_PREVIOUS_MANEUVER;
+    }
+
+    private void applyMaxFpsIfChanged(int maxFps) {
+        if (currentMaxFps != maxFps) {
+            mapView.setMaximumFps(maxFps);
+            currentMaxFps = maxFps;
+        }
     }
 }

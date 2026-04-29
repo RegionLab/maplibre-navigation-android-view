@@ -59,6 +59,8 @@ class NavigationView @JvmOverloads constructor(
     private var instructionTopMargin = 0
     private var speedContainerTopMargin = 0
     private var isSpeedLimitVisible = false
+    private var lastRenderedSpeedKmh: Int? = null
+    private var lastRenderedSpeedLimit: String? = null
 
     private lateinit var navigationPresenter: NavigationPresenter
     private var navigationViewEventDispatcher: NavigationViewEventDispatcher? = null
@@ -177,7 +179,6 @@ class NavigationView @JvmOverloads constructor(
     @UiThread
     fun onDestroy() {
         shutdown()
-        stopNavigation()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
     }
 
@@ -298,14 +299,20 @@ class NavigationView @JvmOverloads constructor(
     override fun updateSpeed(speed: Double) {
         val speedTextView = speedView ?: return
         if (!showSpeedLimitView) {
-            speedTextView.visibility = GONE
+            if (speedTextView.visibility != GONE) {
+                speedTextView.visibility = GONE
+            }
             return
         }
         val safeSpeed = if (speed.isFinite() && speed >= 0.0) speed else 0.0
         val speedKmH = (safeSpeed * 3.6).toInt()
-        speedTextView.text = speedKmH.toString()
-        speedTextView.visibility = VISIBLE
-        updateSpeedViewTranslation()
+        if (lastRenderedSpeedKmh != speedKmH) {
+            speedTextView.text = speedKmH.toString()
+            lastRenderedSpeedKmh = speedKmH
+        }
+        if (speedTextView.visibility != VISIBLE) {
+            speedTextView.visibility = VISIBLE
+        }
     }
 
     override fun updateCameraRouteOverview() {
@@ -625,11 +632,12 @@ class NavigationView @JvmOverloads constructor(
         options: NavigationViewOptions,
         navigationViewModel: NavigationViewModel?
     ) {
-        navigationMap?.addProgressChangeListener(navigationViewModel?.retrieveNavigation()!!)
+        val navigation = navigationViewModel?.retrieveNavigation() ?: return
+        navigationMap?.addProgressChangeListener(navigation)
         navigationViewEventDispatcher?.initializeListeners(options, navigationViewModel)
     }
 
-    private fun setupNavigationMapLibreMap(options: NavigationViewOptions) {
+    private fun setupNavigationMapLibreMap(@Suppress("UNUSED_PARAMETER") options: NavigationViewOptions) {
         navigationMap?.updateWaynameQueryMap(false)
     }
 
@@ -682,6 +690,8 @@ class NavigationView @JvmOverloads constructor(
         if (!showSpeedLimitView) {
             speedLimitView?.text = ""
             speedView?.text = ""
+            lastRenderedSpeedLimit = null
+            lastRenderedSpeedKmh = null
         } else {
             if (speedLimitView?.text.isNullOrBlank()) {
                 speedLimitView?.text = "--"
@@ -689,6 +699,8 @@ class NavigationView @JvmOverloads constructor(
             if (speedView?.text.isNullOrBlank()) {
                 speedView?.text = "0"
             }
+            lastRenderedSpeedLimit = speedLimitView?.text?.toString()
+            lastRenderedSpeedKmh = speedView?.text?.toString()?.toIntOrNull()
         }
         updateSpeedViewTranslation()
     }
@@ -696,7 +708,10 @@ class NavigationView @JvmOverloads constructor(
     override fun updateSpeedLimit(maxSpeed: MaxSpeed?) {
         val speedLimitView = speedLimitView ?: return
         if (!showSpeedLimitView) {
-            speedLimitView.text = ""
+            if (speedLimitView.text.isNotEmpty()) {
+                speedLimitView.text = ""
+            }
+            lastRenderedSpeedLimit = null
             return
         }
         val value = when {
@@ -705,8 +720,10 @@ class NavigationView @JvmOverloads constructor(
             maxSpeed?.speed != null -> maxSpeed.speed.toString()
             else -> "--"
         }
-        speedLimitView.text = value
-        updateSpeedViewTranslation()
+        if (lastRenderedSpeedLimit != value) {
+            speedLimitView.text = value
+            lastRenderedSpeedLimit = value
+        }
     }
 
     private fun updateSpeedViewTranslation() {
