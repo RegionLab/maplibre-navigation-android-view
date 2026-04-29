@@ -1,5 +1,6 @@
 package org.maplibre.navigation.android.navigation.ui.v5.camera;
 
+import static org.maplibre.navigation.core.location.LocationExtKt.toAndroidLocation;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.OnLifecycleEvent;
@@ -94,6 +95,7 @@ public class NavigationCamera implements LifecycleObserver {
     public void onProgressChange(Location location, RouteProgress routeProgress) {
       currentRouteProgress = routeProgress;
       if (isTrackingEnabled()) {
+        tryEnableTrackingModeWith(location);
         currentRouteInformation = buildRouteInformationFromLocation(location, routeProgress);
         if (!isCameraResetting) {
           adjustCameraFromLocation(currentRouteInformation);
@@ -488,11 +490,29 @@ public class NavigationCamera implements LifecycleObserver {
       this.trackingCameraMode = trackingCameraMode;
       updateTrackingModeListenersWith(this.trackingCameraMode);
       if (cameraMode != locationComponent.getCameraMode()) {
+        if (isTrackingCameraMode(cameraMode) && locationComponent.getLastKnownLocation() == null) {
+          Timber.w("Skipping camera tracking mode update until first location fix is available.");
+          return;
+        }
         locationComponent.setCameraMode(cameraMode, cameraTransitionListener);
       }
     } else {
       Timber.e("Using unsupported camera tracking mode - %d.", trackingCameraMode);
     }
+  }
+
+  private void tryEnableTrackingModeWith(@Nullable Location location) {
+    @CameraMode.Mode Integer cameraMode = findCameraModeFor(trackingCameraMode);
+    if (location == null || cameraMode == null || !isTrackingCameraMode(cameraMode)
+      || cameraMode == locationComponent.getCameraMode()) {
+      return;
+    }
+    locationComponent.forceLocationUpdate(toAndroidLocation(location));
+    locationComponent.setCameraMode(cameraMode, cameraTransitionListener);
+  }
+
+  private boolean isTrackingCameraMode(@CameraMode.Mode int cameraMode) {
+    return cameraMode == CameraMode.TRACKING_GPS || cameraMode == CameraMode.TRACKING_GPS_NORTH;
   }
 
   @Nullable
