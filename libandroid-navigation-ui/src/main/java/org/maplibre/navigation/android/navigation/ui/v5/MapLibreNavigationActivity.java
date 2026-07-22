@@ -95,7 +95,7 @@ public class MapLibreNavigationActivity extends AppCompatActivity implements OnN
     extractRoute(options);
     extractConfiguration(options);
     options.navigationOptions(new MapLibreNavigationOptions());
-    navigationView.startNavigation(options.build());
+//    navigationView.startNavigation(options.build());
   }
 
   @Override
