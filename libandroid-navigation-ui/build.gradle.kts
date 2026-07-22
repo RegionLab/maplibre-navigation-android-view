@@ -109,3 +109,7 @@ dependencies {
     testImplementation(libs.mockk)
 }
 
+apply {
+    from(file("${rootDir}/gradle/publish-android.gradle"))
+}
+
