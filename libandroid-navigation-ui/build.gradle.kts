@@ -5,8 +5,6 @@ plugins {
 
 apply {
     from(file("${rootDir}/gradle/artifact-settings.gradle"))
-    from(file("javadoc.gradle"))
-    from(file("${rootDir}/gradle/publish-android.gradle"))
 }
 
 java {
@@ -111,7 +109,3 @@ dependencies {
     testImplementation(libs.mockk)
 }
 
-apply {
-    from(file("javadoc.gradle"))
-    from(file("${rootDir}/gradle/publish-android.gradle"))
-}

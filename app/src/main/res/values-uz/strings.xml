@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">Android uchun Maplibre Navigation SDK</string>
+
+    <string name="title_mock_navigation">Soxta navigatsiya</string>
+    <string name="description_mock_navigation">Soxta joylashuv dvigateli yordamida navigatsiya seansini taqlid qilish.</string>
+
+    <string name="title_navigation_ui">Navigatsiya UI</string>
+    <string name="description_navigation_ui">Navigatsiya UI seansini ko‘rsatish. Xohishga ko‘ra simulyatsiya bilan.</string>
+
+    <string name="title_snap_to_route">Marshrutga yopishtirish</string>
+    <string name="description_snap_to_route">Joylashuv yangilanishlarini silliqroq qilish uchun snap to route funksiyasidan foydalaning.</string>
+
+    <string name="title_foreground_notification">Foreground bildirishnomasi</string>
+    <string name="description_foreground_notification">Ilova minimallashtirilganda navigatsiyani davom ettirish imkonini beruvchi foreground bildirishnomani ko‘rsatish.</string>
+
+    <string name="title_custom_foreground_notification">Moslashtirilgan foreground bildirishnomasi</string>
+    <string name="description_custom_foreground_notification">Standart bildirishnoma o‘rniga moslashtirilgan foreground bildirishnomani ko‘rsatish.</string>
+
+    <string name="title_valhalla_navigation">Valhalla navigatsiyasi</string>
+    <string name="description_vallhalla_navigation">Yo‘nalishlarni yaratish uchun Valhalla routing serveridan foydalanish.</string>
+
+    <string name="title_graphhopper_navigation">GraphHopper navigatsiyasi</string>
+    <string name="description_graphhopper_navigation">Yo‘nalishlarni yaratish uchun GraphHopper routing serveridan foydalanish.</string>
+
+    <string name="title_off_route_detection">Marshrutdan chiqishni aniqlash</string>
+    <string name="description_off_route_detection">Foydalanuvchi marshrutdan chiqqanini aniqlash uchun Route Utils sinfidan foydalanish.</string>
+
+    <string name="title_reroute">Qayta marshrutlash</string>
+    <string name="description_reroute">Navigatsiya SDK ichidagi qayta marshrutlash funksiyasini sinash</string>
+
+    <string name="title_navigation_route_ui">Navigation Map Route</string>
+    <string name="description_navigation_route_ui">NavigationMapRoute orqali turli uslublarni ko‘rsatish</string>
+
+    <string name="title_navigation_launcher">Navigation Launcher</string>
+    <string name="description_navigation_launcher">Tayyor UI tajribasi</string>
+
+    <string name="title_end_navigation">Navigatsiyani tugatish</string>
+    <string name="description_end_navigation">NavigationView orqali navigatsiyani qanday tugatishni ko‘rsatish</string>
+
+    <string name="title_dual_navigation_map">Ikkita navigatsiya xaritasi</string>
+    <string name="description_dual_navigation_map">Bir xil layout ichida NavigationView va MapView qo‘shishni ko‘rsatish</string>
+
+    <string name="title_waypoint_navigation">Waypoint navigatsiyasi</string>
+    <string name="description_waypoint_navigation">Manzillar o‘rtasida waypoint bilan navigatsiya</string>
+
+    <string name="title_embedded_navigation">Ichki navigatsiya</string>
+    <string name="description_embedded_navigation">Boshqa view-larni o‘z ichiga olgan view ichidagi navigatsiya</string>
+
+    <string name="title_fragment_navigation">Fragment bilan amalga oshirilgan NavigationView</string>
+    <string name="description_fragment_navigation">Fragment bilan amalga oshirilgan NavigationView</string>
+
+    <string name="title_component_navigation">UI komponentlari bilan MapLibreNavigation</string>
+    <string name="description_component_navigation">UI komponentlari bilan MapLibreNavigation</string>
+
+    <string name="settings">Sozlamalar</string>
+    <string name="simulate_route">Marshrutni simulyatsiya qilish</string>
+    <string name="language">Til</string>
+    <string name="unit_type">O‘lchov birligi</string>
+    <string name="route_profile">Marshrut profili</string>
+
+    <string name="unit_type_key" translatable="false">unit_type</string>
+    <string name="simulate_route_key" translatable="false">simulate_route</string>
+    <string name="language_key" translatable="false">language</string>
+    <string name="route_profile_key" translatable="false">route_profile</string>
+    <string name="default_locale" translatable="false">default_for_device</string>
+    <string name="default_unit_type" translatable="false">default_for_device</string>
+    <string name="current_night_mode" translatable="false">current_night_mode</string>
+
+    <string name="error_route_not_available">Joriy marshrut mavjud emas</string>
+    <string name="error_select_longer_route">Iltimos, uzunroq marshrutni tanlang</string>
+    <string name="error_valid_route_not_found">Yaroqli marshrut topilmadi.</string>
+    <string name="explanation_long_press_waypoint">Waypoint qo‘yish uchun xaritada uzoq bosib turing</string>
+
+</resources>
