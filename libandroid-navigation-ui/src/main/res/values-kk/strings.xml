@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Indicates that rerouting is in progress -->
+    <string name="rerouting">Қайта маршруттау…</string>
+
+    <!-- Button title for re-centering tracking -->
+    <string name="re_center">ҚАЙТА ОРТАЛАУ</string>
+
+    <!-- Indicates voice instructions are muted -->
+    <string name="muted">Дыбыс өшірулі</string>
+
+    <!-- Indicates voice instructions are unmuted -->
+    <string name="unmuted">Дыбыс қосулы</string>
+    <!-- Shown in off-route scenarios to provide feedback -->
+    <string name="report_problem">Мәселені хабарлау</string>
+
+    <!-- Test app dialog text -->
+    <string name="dropoff_dialog_text">Келесі бағытқа навигацияны бастағыңыз келе ме?</string>
+
+    <!-- Test app dialog text start next route -->
+    <string name="dropoff_dialog_positive_text">Келесісін бастау</string>
+
+    <!-- Test app dialog text cancel navigation -->
+    <string name="dropoff_dialog_negative_text">Бас тарту</string>
+
+    <!-- Should not be translated -->
+    <string name="navigation_guidance_day"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-day-v4</string>
+    <string name="navigation_guidance_night"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-night-v4</string>
+    <string name="navigation_view_instance_state"
+            translatable="false">navigation_view_instance_state</string>
+    <string name="navigation_running"
+            translatable="false">navigation_running</string>
+
+    <string name="kilometers">км</string>
+    <string name="meters">м</string>
+    <string name="miles">миль</string>
+    <string name="feet">фут</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Навигация хабарламалары</string>
+    <string name="notification_eta_format">%s ЖКУ</string>
+    <string name="notification_end_navigation">Навигацияны аяқтау</string>
+
+    <!-- Time formatting -->
+    <plurals name="numberOfDays">
+        <item quantity="one">күн</item>
+        <item quantity="other">күн</item>
+    </plurals>
+    <!-- Hour -->
+    <string name="hr">сағ</string>
+    <!-- Minute -->
+    <string name="min">мин</string>
+</resources>

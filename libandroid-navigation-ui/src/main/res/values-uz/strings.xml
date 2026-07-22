@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Indicates that rerouting is in progress -->
+    <string name="rerouting">Qayta marshrutlanmoqda…</string>
+
+    <!-- Button title for re-centering tracking -->
+    <string name="re_center">QAYTA MARKAZLASH</string>
+
+    <!-- Indicates voice instructions are muted -->
+    <string name="muted">Ovoz o‘chirilgan</string>
+
+    <!-- Indicates voice instructions are unmuted -->
+    <string name="unmuted">Ovoz yoqilgan</string>
+    <!-- Shown in off-route scenarios to provide feedback -->
+    <string name="report_problem">Muammo haqida xabar berish</string>
+
+    <!-- Test app dialog text -->
+    <string name="dropoff_dialog_text">Keyingi manzilga navigatsiya qilishni xohlaysizmi?</string>
+
+    <!-- Test app dialog text start next route -->
+    <string name="dropoff_dialog_positive_text">Keyingisini boshlash</string>
+
+    <!-- Test app dialog text cancel navigation -->
+    <string name="dropoff_dialog_negative_text">Bekor qilish</string>
+
+    <!-- Should not be translated -->
+    <string name="navigation_guidance_day"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-day-v4</string>
+    <string name="navigation_guidance_night"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-night-v4</string>
+    <string name="navigation_view_instance_state"
+            translatable="false">navigation_view_instance_state</string>
+    <string name="navigation_running"
+            translatable="false">navigation_running</string>
+
+    <string name="kilometers">km</string>
+    <string name="meters">m</string>
+    <string name="miles">mil</string>
+    <string name="feet">ft</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Navigatsiya bildirishnomalari</string>
+    <string name="notification_eta_format">%s ETA</string>
+    <string name="notification_end_navigation">Navigatsiyani tugatish</string>
+
+    <!-- Time formatting -->
+    <plurals name="numberOfDays">
+        <item quantity="one">kun</item>
+        <item quantity="other">kun</item>
+    </plurals>
+    <!-- Hour -->
+    <string name="hr">soat</string>
+    <!-- Minute -->
+    <string name="min">daq</string>
+</resources>

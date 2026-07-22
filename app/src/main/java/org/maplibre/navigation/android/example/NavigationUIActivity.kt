@@ -1,12 +1,6 @@
 package org.maplibre.navigation.android.example
 
 import android.os.Bundle
-import android.view.View
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.snackbar.Snackbar
-import org.maplibre.navigation.core.models.DirectionsResponse
-import org.maplibre.android.annotations.MarkerOptions
 import android.preference.PreferenceManager
 import androidx.activity.ComponentActivity
 import okhttp3.Request
@@ -30,16 +24,10 @@ import org.maplibre.navigation.android.navigation.ui.v5.RoutingService
 import org.maplibre.navigation.android.navigation.ui.v5.listeners.NavigationListener
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
+import org.maplibre.navigation.android.navigation.ui.v5.toMapLibre
 import org.maplibre.navigation.core.models.DirectionsResponse
 import org.maplibre.navigation.core.models.DirectionsRoute
-import okhttp3.Request
-import org.maplibre.navigation.android.example.databinding.ActivityNavigationUiBinding
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
-import org.maplibre.navigation.android.navigation.ui.v5.toMapLibre
 import org.maplibre.navigation.core.models.UnitType
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.turf.measurement.distance
-import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.navigation.core.navigation.NavigationConstants
 import retrofit2.Call
 import retrofit2.Callback
@@ -259,7 +247,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
         val navigationRouteBuilder = NavigationRoute.builder(this).apply {
 //            this.accessToken(getString(R.string.mapbox_access_token))
 //            this.origin(origin.toMapLibre())
-            this.destination(destination.toMapLibre())
+            this.destination(destination)
             this.voiceUnits(UnitType.METRIC)
             this.alternatives(true)
             // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
