@@ -69,7 +69,7 @@ public class NavigationViewModelTest {
   }
 
   @Test
-  public void navigationRouter_onDestroyInvokedWhenViewModelIsDestroyed() {
+  public void navigationViewRouter_onDestroyInvokedWhenViewModelIsDestroyed() {
     Application application = mock(Application.class);
     MapLibreNavigation navigation = mock(MapLibreNavigation.class);
     NavigationViewRouter mockedRouter = mock(NavigationViewRouter.class);

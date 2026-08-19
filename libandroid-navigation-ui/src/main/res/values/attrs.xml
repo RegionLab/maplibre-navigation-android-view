@@ -66,6 +66,12 @@
     <!-- Route overview drawable -->
     <attr name="navigationViewRouteOverviewDrawable" format="reference"/>
 
+    <!-- Speed limit style -->
+    <attr name="navigationViewSpeedLimitBackground" format="reference"/>
+    <attr name="navigationViewSpeedLimitTextColor" format="color"/>
+    <attr name="navigationViewSpeedBackground" format="reference"/>
+    <attr name="navigationViewSpeedTextColor" format="color"/>
+
     <!-- For setting the styles in XML -->
     <attr name="navigationLightTheme" format="reference"/>
     <attr name="navigationDarkTheme" format="reference"/>

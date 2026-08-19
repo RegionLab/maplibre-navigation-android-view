@@ -23,8 +23,6 @@ public abstract class NavigationLauncherOptions extends NavigationUiOptions {
 
     public abstract Builder shouldSimulateRoute(boolean shouldSimulateRoute);
 
-    public abstract Builder waynameChipEnabled(boolean waynameChipEnabled);
-
     public abstract Builder initialMapCameraPosition(@Nullable CameraPosition initialMapCameraPosition);
 
     public abstract NavigationLauncherOptions build();
@@ -32,7 +30,6 @@ public abstract class NavigationLauncherOptions extends NavigationUiOptions {
 
   public static NavigationLauncherOptions.Builder builder() {
     return new AutoValue_NavigationLauncherOptions.Builder()
-      .shouldSimulateRoute(false)
-      .waynameChipEnabled(true);
+      .shouldSimulateRoute(false);
   }
 }

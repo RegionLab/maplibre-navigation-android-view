@@ -15,6 +15,4 @@ public abstract class NavigationUiOptions {
   public abstract Integer darkThemeResId();
 
   public abstract boolean shouldSimulateRoute();
-
-  public abstract boolean waynameChipEnabled();
 }

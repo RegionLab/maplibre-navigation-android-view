@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">Android үшін Maplibre Navigation SDK</string>
+
+    <string name="title_mock_navigation">Жалған навигация</string>
+    <string name="description_mock_navigation">Жалған орын қозғалтқышын пайдаланып навигация сессиясын имитациялау.</string>
+
+    <string name="title_navigation_ui">Навигация UI</string>
+    <string name="description_navigation_ui">Навигация UI сессиясын көрсету. Қалауыңызша симуляциямен.</string>
+
+    <string name="title_snap_to_route">Маршрутқа жабыстыру</string>
+    <string name="description_snap_to_route">Орын жаңартуларын бірқалыпты ету үшін snap to route параметрін қолданыңыз.</string>
+
+    <string name="title_foreground_notification">Foreground хабарламасы</string>
+    <string name="description_foreground_notification">Қолданба кішірейтілгенде навигацияны жалғастыруға мүмкіндік беретін foreground хабарламасын көрсету.</string>
+
+    <string name="title_custom_foreground_notification">Теңшелген foreground хабарламасы</string>
+    <string name="description_custom_foreground_notification">Әдепкі хабарламаның орнына теңшелген foreground хабарламасын көрсету.</string>
+
+    <string name="title_valhalla_navigation">Valhalla навигациясы</string>
+    <string name="description_vallhalla_navigation">Бағыттарды генерациялау үшін Valhalla routing серверін пайдалану.</string>
+
+    <string name="title_graphhopper_navigation">GraphHopper навигациясы</string>
+    <string name="description_graphhopper_navigation">Бағыттарды генерациялау үшін GraphHopper routing серверін пайдалану.</string>
+
+    <string name="title_off_route_detection">Маршруттан ауытқуды анықтау</string>
+    <string name="description_off_route_detection">Пайдаланушының маршруттан шыққанын анықтау үшін Route Utils класын қолдану.</string>
+
+    <string name="title_reroute">Қайта маршруттау</string>
+    <string name="description_reroute">Навигация SDK ішіндегі қайта маршруттау функциясын тексеру</string>
+
+    <string name="title_navigation_route_ui">Navigation Map Route</string>
+    <string name="description_navigation_route_ui">NavigationMapRoute арқылы әртүрлі стильдерді көрсету</string>
+
+    <string name="title_navigation_launcher">Navigation Launcher</string>
+    <string name="description_navigation_launcher">Дайын UI тәжірибесі</string>
+
+    <string name="title_end_navigation">Навигацияны аяқтау</string>
+    <string name="description_end_navigation">NavigationView арқылы навигацияны қалай аяқтауды көрсету</string>
+
+    <string name="title_dual_navigation_map">Екі навигация картасы</string>
+    <string name="description_dual_navigation_map">Бір layout ішінде NavigationView және MapView қосуды көрсету</string>
+
+    <string name="title_waypoint_navigation">Waypoint навигациясы</string>
+    <string name="description_waypoint_navigation">Межелі нүктелер арасында waypoint-пен навигация</string>
+
+    <string name="title_embedded_navigation">Ендірілген навигация</string>
+    <string name="description_embedded_navigation">Басқа view-лер бар view ішіндегі навигация</string>
+
+    <string name="title_fragment_navigation">Fragment арқылы жүзеге асқан NavigationView</string>
+    <string name="description_fragment_navigation">Fragment арқылы жүзеге асқан NavigationView</string>
+
+    <string name="title_component_navigation">UI компоненттерімен MapLibreNavigation</string>
+    <string name="description_component_navigation">UI компоненттерімен MapLibreNavigation</string>
+
+    <string name="settings">Баптаулар</string>
+    <string name="simulate_route">Маршрутты имитациялау</string>
+    <string name="language">Тіл</string>
+    <string name="unit_type">Өлшем бірлігі</string>
+    <string name="route_profile">Маршрут профилі</string>
+
+    <string name="unit_type_key" translatable="false">unit_type</string>
+    <string name="simulate_route_key" translatable="false">simulate_route</string>
+    <string name="language_key" translatable="false">language</string>
+    <string name="route_profile_key" translatable="false">route_profile</string>
+    <string name="default_locale" translatable="false">default_for_device</string>
+    <string name="default_unit_type" translatable="false">default_for_device</string>
+    <string name="current_night_mode" translatable="false">current_night_mode</string>
+
+    <string name="error_route_not_available">Ағымдағы маршрут қолжетімді емес</string>
+    <string name="error_select_longer_route">Ұзағырақ маршрутты таңдаңыз</string>
+    <string name="error_valid_route_not_found">Жарамды маршрут табылмады.</string>
+    <string name="explanation_long_press_waypoint">Waypoint қою үшін картада ұзақ басыңыз</string>
+
+</resources>

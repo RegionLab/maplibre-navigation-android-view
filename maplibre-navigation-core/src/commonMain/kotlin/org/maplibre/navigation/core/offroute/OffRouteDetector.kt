@@ -72,9 +72,9 @@ open class OffRouteDetector(
         routeProgress: RouteProgress,
         options: MapLibreNavigationOptions
     ): Boolean {
-        if (checkDistanceRemaining(routeProgress)) {
-            return true
-        }
+//        if (checkDistanceRemaining(routeProgress)) {
+//            return true
+//        }
 
         if (!validOffRoute(location, options)) {
             return false

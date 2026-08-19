@@ -110,6 +110,6 @@ dependencies {
 }
 
 apply {
-    from(file("javadoc.gradle"))
     from(file("${rootDir}/gradle/publish-android.gradle"))
 }
+
