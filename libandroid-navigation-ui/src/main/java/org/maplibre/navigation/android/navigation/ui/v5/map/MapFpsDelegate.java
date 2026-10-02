@@ -15,7 +15,7 @@ import org.maplibre.navigation.core.routeprogress.RouteProgress;
 
 class MapFpsDelegate implements OnTrackingModeChangedListener, OnTrackingModeTransitionListener {
 
-    static final int DEFAULT_MAX_FPS_THRESHOLD = 20;
+    static final int DEFAULT_MAX_FPS_THRESHOLD = 15;
     private static final double VALID_DURATION_IN_SECONDS_UNTIL_NEXT_MANEUVER = 7d;
     private static final double VALID_DURATION_IN_SECONDS_SINCE_PREVIOUS_MANEUVER = 5d;
     private static final int DEVICE_MAX_FPS = Integer.MAX_VALUE;

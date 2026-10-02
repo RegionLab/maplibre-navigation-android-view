@@ -79,6 +79,7 @@ class NavigationView @JvmOverloads constructor(
     private var onNavigationReadyCallback: OnNavigationReadyCallback? = null
     private var initialMapCameraPosition: CameraPosition? = null
     private var pendingNavigationStart: (() -> Unit)? = null
+    private var isNavigationActive = false
     private var symbolManager: SymbolManager? = null
     private var routeRequestExecutor: RouteRequestExecutor? = null
     private var enableInstructionList = true
@@ -183,6 +184,9 @@ class NavigationView @JvmOverloads constructor(
         mapView.onStart()
         navigationMap?.onStart()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
+        if (!isNavigationActive) {
+            preNavigationLocationEngine?.start()
+        }
     }
 
     fun onResume() {
@@ -198,6 +202,8 @@ class NavigationView @JvmOverloads constructor(
     fun onStop() {
         mapView.onStop()
         navigationMap?.onStop()
+        // No need for GPS updates while the map isn't visible and navigation isn't running
+        preNavigationLocationEngine?.stop()
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 
@@ -260,6 +266,7 @@ class NavigationView @JvmOverloads constructor(
             return
         }
         preNavigationLocationEngine?.stop()
+        isNavigationActive = true
         val route = routes.first()
         val options = NavigationViewOptions.builder()
         options.directionsRoute(route)
@@ -353,7 +360,10 @@ class NavigationView @JvmOverloads constructor(
     @UiThread
     fun stopNavigation() {
         pendingNavigationStart = null
-        preNavigationLocationEngine?.start()
+        isNavigationActive = false
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            preNavigationLocationEngine?.start()
+        }
         routeRequestExecutor?.cancel()
         navigationRoute = null
         hideInstructionView()
@@ -544,7 +554,9 @@ class NavigationView @JvmOverloads constructor(
                 updateSpeed(location.speedMetersPerSeconds?.toDouble() ?: 0.0)
             }
         )
-        preNavigationLocationEngine?.start()
+        if (!isNavigationActive && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            preNavigationLocationEngine?.start()
+        }
     }
 
 
@@ -727,6 +739,10 @@ class NavigationView @JvmOverloads constructor(
             }
             lastRenderedSpeedLimit = speedLimitView?.text?.toString()
             lastRenderedSpeedKmh = speedView?.text?.toString()?.toIntOrNull()
+            // speedLimitModel only emits on change, so render the current value right away
+            if (::navigationViewModel.isInitialized) {
+                navigationViewModel.speedLimitModel.value?.let(::updateSpeedLimit)
+            }
         }
         updateSpeedViewTranslation()
     }

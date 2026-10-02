@@ -42,6 +42,7 @@ import org.maplibre.navigation.core.utils.RouteUtils;
 import org.jetbrains.annotations.TestOnly;
 
 import java.util.List;
+import java.util.Objects;
 
 public class NavigationViewModel {
 
@@ -207,10 +208,16 @@ public class NavigationViewModel {
         this.routeProgress = routeProgress;
         sendEventArrival(routeProgress, milestone);
         instructionModel.setValue(new InstructionModel(distanceFormatter, routeProgress));
-        summaryModel.setValue(new SummaryModel(context, distanceFormatter, routeProgress, timeFormatType));
-        speedLimitModel.setValue(routeProgress.getCurrentLegAnnotation() != null
+        // Formatting the summary every second is wasted work when nothing displays it
+        if (summaryModel.hasObservers()) {
+            summaryModel.setValue(new SummaryModel(context, distanceFormatter, routeProgress, timeFormatType));
+        }
+        MaxSpeed maxSpeed = routeProgress.getCurrentLegAnnotation() != null
             ? routeProgress.getCurrentLegAnnotation().getMaxSpeed()
-            : null);
+            : null;
+        if (!Objects.equals(speedLimitModel.getValue(), maxSpeed)) {
+            speedLimitModel.setValue(maxSpeed);
+        }
     }
 
     void updateLocation(Location location) {

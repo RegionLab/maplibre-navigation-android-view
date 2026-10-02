@@ -13,8 +13,6 @@ import org.maplibre.navigation.core.location.engine.LocationEngine
 import org.maplibre.navigation.core.location.engine.LocationEngine.Request.Accuracy
 import org.maplibre.navigation.core.location.toAndroidLocation
 import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions.Defaults
-import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.Companion.LOCATION_UPDATE_INTERVAL_MILLISECONDS
-import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.Companion.LOCATION_UPDATE_MINIMUM_METERS
 
 class PreNavigationLocationEngine(
     private val locationEngine: LocationEngine,
@@ -22,7 +20,12 @@ class PreNavigationLocationEngine(
     private val onLocationUpdate: ((Location) -> Unit)? = null,
     private val locationValidator: LocationValidator = LocationValidator(Defaults.LOCATION_ACCEPTABLE_ACCURACY_IN_METERS_THRESHOLD),//todo maybe provide accuracyThreshold through options
     private val backgroundScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+    /**
+     * Location request used while navigation is not running. Less frequent than the navigation
+     * request (1s) to save battery: only the user location puck and speed are updated.
+     */
+    private val locationRequest: LocationEngine.Request = DEFAULT_REQUEST,
 ) {
 
     private var collectLocationJob: Job? = null
@@ -35,13 +38,7 @@ class PreNavigationLocationEngine(
 
             // Android location engines need a Looper thread when no explicit looper is given
             withContext(Dispatchers.Main) {
-                locationEngine.listenToLocation(
-                    LocationEngine.Request(
-                        accuracy = Accuracy.HIGH,
-                        minUpdateDistanceMeters = LOCATION_UPDATE_MINIMUM_METERS,
-                        intervalMilliseconds = LOCATION_UPDATE_INTERVAL_MILLISECONDS,
-                    )
-                ).collect(::processLocationUpdate)
+                locationEngine.listenToLocation(locationRequest).collect(::processLocationUpdate)
             }
         }
     }
@@ -59,5 +56,13 @@ class PreNavigationLocationEngine(
             onLocationUpdate?.invoke(rawLocation)
             locationComponent.forceLocationUpdate(rawLocation.toAndroidLocation())
         }
+    }
+
+    companion object {
+        val DEFAULT_REQUEST = LocationEngine.Request(
+            accuracy = Accuracy.HIGH,
+            minUpdateDistanceMeters = 0f,
+            intervalMilliseconds = 2000L,
+        )
     }
 }
