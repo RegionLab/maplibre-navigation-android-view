@@ -1,4 +1,6 @@
 jdk:
   - openjdk21
 install:
-  - ./gradlew publishToMavenLocal -Dmaven.repo.local=$HOME/.m2/repository
+  # Gradle/AGP need JDK 21, Kotlin compilation uses the JDK 17 toolchain (jvmToolchain(17))
+  - yes n | sdk install java 17.0.20-tem
+  - sdk use java 21.0.2-open; ./gradlew publishToMavenLocal -Dmaven.repo.local=$HOME/.m2/repository -Porg.gradle.java.installations.paths=$HOME/.sdkman/candidates/java/17.0.20-tem
