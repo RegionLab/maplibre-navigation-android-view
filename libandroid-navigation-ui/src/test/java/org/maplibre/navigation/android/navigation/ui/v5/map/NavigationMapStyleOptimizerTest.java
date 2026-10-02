@@ -105,13 +105,47 @@ public class NavigationMapStyleOptimizerTest {
   }
 
   @Test
-  public void apply_ignoredWhenStyleNotLoaded() {
-    when(style.isFullyLoaded()).thenReturn(false);
+  public void apply_whileStyleLoading_optimizesLayersOnceLoaded() {
+    when(mapLibreMap.getStyle()).thenReturn(null);
 
     optimizer.apply();
 
-    assertFalse(optimizer.isApplied());
-    verify(mapLibreMap, never()).setPrefetchZoomDelta(0);
+    assertTrue(optimizer.isApplied());
+    verify(poi, never()).setProperties(any(PropertyValue.class));
+
+    when(mapLibreMap.getStyle()).thenReturn(style);
+    optimizer.onStyleLoaded();
+
+    assertHidden(poi);
+  }
+
+  @Test
+  public void onStyleLoaded_newStyleIsOptimized() {
+    optimizer.apply();
+    Style newStyle = mock(Style.class);
+    when(newStyle.isFullyLoaded()).thenReturn(true);
+    SymbolLayer newPoi = mock(SymbolLayer.class);
+    when(newPoi.getId()).thenReturn("poi_new");
+    when(newPoi.getSourceLayer()).thenReturn("poi");
+    when(newPoi.getVisibility()).thenReturn(PropertyFactory.visibility(Property.VISIBLE));
+    when(newStyle.getLayers()).thenReturn(Arrays.<Layer>asList(newPoi));
+    when(newStyle.getLayer("poi_new")).thenReturn(newPoi);
+    when(mapLibreMap.getStyle()).thenReturn(newStyle);
+
+    optimizer.onStyleLoaded();
+    optimizer.restore();
+
+    assertEquals(Property.VISIBLE, lastVisibility(newPoi));
+    // Layers of the old style are forgotten, nothing is looked up in the new style by old ids
+    verify(newStyle, never()).getLayer("poi_r1");
+    verify(mapLibreMap).setPrefetchZoomDelta(4);
+  }
+
+  @Test
+  public void restore_withoutApply_doesNothing() {
+    optimizer.restore();
+
+    verify(mapLibreMap, never()).setPrefetchZoomDelta(org.mockito.ArgumentMatchers.anyInt());
   }
 
   private <T extends Layer> T layer(Class<T> type, String id) {

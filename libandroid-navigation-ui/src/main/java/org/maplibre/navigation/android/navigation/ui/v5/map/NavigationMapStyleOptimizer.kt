@@ -17,6 +17,9 @@ import org.maplibre.android.style.layers.SymbolLayer
  * Layers are matched by type and OpenMapTiles source layer (OpenFreeMap, MapTiler, ...), so layers
  * of other schemas and the navigation's own layers are left untouched.
  * Everything changed is restored by [restore].
+ *
+ * Only layer ids are kept, never layer instances, so a style switch can't leave stale references.
+ * Call [onStyleLoaded] after a new style is loaded to optimize it as well.
  */
 internal class NavigationMapStyleOptimizer(private val mapLibreMap: MapLibreMap) {
 
@@ -26,20 +29,36 @@ internal class NavigationMapStyleOptimizer(private val mapLibreMap: MapLibreMap)
     /** Layer id to its original max zoom. */
     private val extendedLayers = mutableMapOf<String, Float>()
 
-    private var originalPrefetchZoomDelta: Int? = null
+    private var originalPrefetchZoomDelta = 0
 
-    val isApplied: Boolean
-        get() = originalPrefetchZoomDelta != null
+    var isApplied: Boolean = false
+        private set
 
     fun apply() {
         if (isApplied) {
             return
         }
-        val style = mapLibreMap.style?.takeIf { it.isFullyLoaded } ?: return
-
+        isApplied = true
         originalPrefetchZoomDelta = mapLibreMap.prefetchZoomDelta
         mapLibreMap.prefetchZoomDelta = 0
+        // If the style is still loading, layers are optimized in onStyleLoaded()
+        optimizeLayers()
+    }
 
+    /**
+     * Must be called when a new style finished loading: the new style comes with its own layers,
+     * so the previous bookkeeping is dropped and the new layers are optimized if [apply] is active.
+     */
+    fun onStyleLoaded() {
+        hiddenLayers.clear()
+        extendedLayers.clear()
+        if (isApplied) {
+            optimizeLayers()
+        }
+    }
+
+    private fun optimizeLayers() {
+        val style = mapLibreMap.style?.takeIf { it.isFullyLoaded } ?: return
         val layers = style.layers
         val hasBuildingExtrusions = layers.any { it is FillExtrusionLayer }
         for (layer in layers) {
@@ -64,8 +83,10 @@ internal class NavigationMapStyleOptimizer(private val mapLibreMap: MapLibreMap)
         hiddenLayers.clear()
         extendedLayers.clear()
 
-        originalPrefetchZoomDelta?.let { mapLibreMap.prefetchZoomDelta = it }
-        originalPrefetchZoomDelta = null
+        if (isApplied) {
+            mapLibreMap.prefetchZoomDelta = originalPrefetchZoomDelta
+            isApplied = false
+        }
     }
 
     private fun shouldHide(layer: Layer): Boolean {
@@ -82,6 +103,9 @@ internal class NavigationMapStyleOptimizer(private val mapLibreMap: MapLibreMap)
     }
 
     private fun hide(layer: Layer) {
+        if (hiddenLayers.containsKey(layer.id)) {
+            return
+        }
         val originalVisibility = layer.visibility?.value ?: Property.VISIBLE
         if (originalVisibility == Property.NONE) {
             return
@@ -91,6 +115,9 @@ internal class NavigationMapStyleOptimizer(private val mapLibreMap: MapLibreMap)
     }
 
     private fun showAtAllZooms(layer: FillLayer) {
+        if (extendedLayers.containsKey(layer.id)) {
+            return
+        }
         extendedLayers[layer.id] = layer.maxZoom
         layer.maxZoom = MAX_ZOOM
     }

@@ -83,6 +83,10 @@ class NavigationView @JvmOverloads constructor(
     private var isNavigationActive = false
     private var mapStyleOptimizer: NavigationMapStyleOptimizer? = null
     private var lightweightNavigationMap = true
+    private val onStyleChangedListener = MapView.OnDidFinishLoadingStyleListener {
+        // A new style (e.g. day/night switch) brings its own layers, optimize them too
+        mapStyleOptimizer?.onStyleLoaded()
+    }
     private var symbolManager: SymbolManager? = null
     private var routeRequestExecutor: RouteRequestExecutor? = null
     private var enableInstructionList = true
@@ -226,6 +230,7 @@ class NavigationView @JvmOverloads constructor(
             initializeSymbolManager(mapView, mapLibreMap, style)
             initializeNavigationMap(mapView, mapLibreMap)
             mapStyleOptimizer = NavigationMapStyleOptimizer(mapLibreMap)
+            mapView.addOnDidFinishLoadingStyleListener(onStyleChangedListener)
             initializeWayNameListener()
             initializePreNavigationLocationEngine(mapLibreMap)
             isMapInitialized = true
@@ -729,6 +734,7 @@ class NavigationView @JvmOverloads constructor(
         routeRequestExecutor = null
 
         navigationViewEventDispatcher?.onDestroy(navigationViewModel.retrieveNavigation())
+        mapView.removeOnDidFinishLoadingStyleListener(onStyleChangedListener)
         mapView.onDestroy()
         // NavigationViewModel lives as long as this view, so a recreated view can't pick up a
         // running navigation: always tear it down to avoid leaking location updates and TTS.
