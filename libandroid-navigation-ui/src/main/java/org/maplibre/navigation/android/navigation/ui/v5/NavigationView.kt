@@ -34,6 +34,7 @@ import org.maplibre.navigation.android.navigation.ui.v5.instruction.InstructionV
 import org.maplibre.navigation.android.navigation.ui.v5.listeners.NavigationListener
 import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMap
 import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapLibreMapInstanceState
+import org.maplibre.navigation.android.navigation.ui.v5.map.NavigationMapStyleOptimizer
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
 import org.maplibre.navigation.android.navigation.ui.v5.utils.DistanceFormatter
 import org.maplibre.navigation.android.navigation.ui.v5.utils.LocaleUtils
@@ -80,6 +81,8 @@ class NavigationView @JvmOverloads constructor(
     private var initialMapCameraPosition: CameraPosition? = null
     private var pendingNavigationStart: (() -> Unit)? = null
     private var isNavigationActive = false
+    private var mapStyleOptimizer: NavigationMapStyleOptimizer? = null
+    private var lightweightNavigationMap = true
     private var symbolManager: SymbolManager? = null
     private var routeRequestExecutor: RouteRequestExecutor? = null
     private var enableInstructionList = true
@@ -222,6 +225,7 @@ class NavigationView @JvmOverloads constructor(
         val onStyleLoaded = OnStyleLoaded { style ->
             initializeSymbolManager(mapView, mapLibreMap, style)
             initializeNavigationMap(mapView, mapLibreMap)
+            mapStyleOptimizer = NavigationMapStyleOptimizer(mapLibreMap)
             initializeWayNameListener()
             initializePreNavigationLocationEngine(mapLibreMap)
             isMapInitialized = true
@@ -274,6 +278,7 @@ class NavigationView @JvmOverloads constructor(
         options.navigationListener(instructionVisibilityNavigationListener)
         showInstructionView()
         initializeNavigation(options.build())
+        updateMapStyleOptimization()
     }
 
     override fun resetCameraPosition() {
@@ -369,6 +374,7 @@ class NavigationView @JvmOverloads constructor(
         hideInstructionView()
         navigationPresenter.onNavigationStopped()
         navigationViewModel.stopNavigation()
+        updateMapStyleOptimization()
     }
 
 
@@ -443,13 +449,33 @@ class NavigationView @JvmOverloads constructor(
         instructionView.isVisible = false
     }
 
+    /**
+     * @param enableInstructionList allow opening the instruction list
+     * @param showSpeedLimitView show current speed and speed limit
+     * @param lightweightNavigationMap while navigating, hide map layers that are expensive to
+     * render but not useful while driving (3D buildings, POIs, water labels, one-way arrows,
+     * decorative patterns) and disable tile prefetching. Restored when navigation stops.
+     */
+    @JvmOverloads
     fun configureUi(
         enableInstructionList: Boolean = true,
-        showSpeedLimitView: Boolean = false
+        showSpeedLimitView: Boolean = false,
+        lightweightNavigationMap: Boolean = true
     ) {
         this.enableInstructionList = enableInstructionList
         this.showSpeedLimitView = showSpeedLimitView
+        this.lightweightNavigationMap = lightweightNavigationMap
         applyUiConfiguration()
+        updateMapStyleOptimization()
+    }
+
+    private fun updateMapStyleOptimization() {
+        val optimizer = mapStyleOptimizer ?: return
+        if (isNavigationActive && lightweightNavigationMap) {
+            optimizer.apply()
+        } else {
+            optimizer.restore()
+        }
     }
 
     private fun initializeView() {
@@ -709,6 +735,7 @@ class NavigationView @JvmOverloads constructor(
         navigationViewModel.onDestroy(false)
         ImageCreator.getInstance().shutdown()
         navigationMap = null
+        mapStyleOptimizer = null
         isMapInitialized = false
         isMapRequested = false
     }
