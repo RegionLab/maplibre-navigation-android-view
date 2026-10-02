@@ -12,6 +12,7 @@ import org.maplibre.navigation.core.location.LocationValidator
 import org.maplibre.navigation.core.location.engine.LocationEngine
 import org.maplibre.navigation.core.location.engine.LocationEngine.Request.Accuracy
 import org.maplibre.navigation.core.location.toAndroidLocation
+import org.maplibre.navigation.android.navigation.ui.v5.map.LocationLookAhead
 import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions.Defaults
 
 class PreNavigationLocationEngine(
@@ -22,13 +23,13 @@ class PreNavigationLocationEngine(
     private val backgroundScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
     /**
-     * Location request used while navigation is not running. Less frequent than the navigation
-     * request (1s) to save battery: only the user location puck and speed are updated.
+     * Location request used while navigation is not running.
      */
     private val locationRequest: LocationEngine.Request = DEFAULT_REQUEST,
 ) {
 
     private var collectLocationJob: Job? = null
+    private val locationLookAhead = LocationLookAhead()
 
     fun start() {
         collectLocationJob?.cancel() // Cancel previous started run
@@ -54,7 +55,7 @@ class PreNavigationLocationEngine(
         }
         mainScope.launch {
             onLocationUpdate?.invoke(rawLocation)
-            locationComponent.forceLocationUpdate(rawLocation.toAndroidLocation())
+            locationLookAhead.update(locationComponent, rawLocation.toAndroidLocation())
         }
     }
 
@@ -62,7 +63,8 @@ class PreNavigationLocationEngine(
         val DEFAULT_REQUEST = LocationEngine.Request(
             accuracy = Accuracy.HIGH,
             minUpdateDistanceMeters = 0f,
-            intervalMilliseconds = 2000L,
+            // Longer intervals make the user location puck lag behind
+            intervalMilliseconds = 1000L,
         )
     }
 }

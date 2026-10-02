@@ -83,6 +83,7 @@ public class NavigationMapLibreMap {
   @Nullable
   private MapFpsDelegate mapFpsDelegate;
   private LocationFpsDelegate locationFpsDelegate;
+  private final LocationLookAhead locationLookAhead = new LocationLookAhead();
   private long lastWayNameQueryTimestampMs;
   private double lastWayNameQueryLatitude = Double.NaN;
   private double lastWayNameQueryLongitude = Double.NaN;
@@ -206,7 +207,7 @@ public class NavigationMapLibreMap {
    * @param location to update the icon and query the map
    */
   public void updateLocation(Location location) {
-    locationComponent.forceLocationUpdate(toAndroidLocation(location));
+    locationLookAhead.update(locationComponent, toAndroidLocation(location));
     updateMapWayNameWithLocation(location);
   }
 
