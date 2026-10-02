@@ -22,11 +22,11 @@ class LocationFpsDelegate implements MapLibreMap.OnCameraIdleListener {
   private final LocationComponent locationComponent;
   private int currentFps = MAX_ANIMATION_FPS;
   private boolean isEnabled = true;
+  private boolean isListening;
 
   LocationFpsDelegate(@NonNull MapLibreMap mapLibreMap, @NonNull LocationComponent locationComponent) {
     this.mapLibreMap = mapLibreMap;
     this.locationComponent = locationComponent;
-    mapLibreMap.addOnCameraIdleListener(this);
   }
 
   @Override
@@ -38,11 +38,18 @@ class LocationFpsDelegate implements MapLibreMap.OnCameraIdleListener {
   }
 
   void onStart() {
-    mapLibreMap.addOnCameraIdleListener(this);
+    if (!isListening) {
+      mapLibreMap.addOnCameraIdleListener(this);
+      isListening = true;
+      updateMaxFps();
+    }
   }
 
   void onStop() {
-    mapLibreMap.removeOnCameraIdleListener(this);
+    if (isListening) {
+      mapLibreMap.removeOnCameraIdleListener(this);
+      isListening = false;
+    }
   }
 
   void updateEnabled(boolean isEnabled) {

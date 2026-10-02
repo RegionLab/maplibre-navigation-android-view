@@ -4,31 +4,14 @@ import androidx.annotation.NonNull;
 
 import org.maplibre.navigation.core.location.Location;
 import org.maplibre.navigation.core.models.DirectionsRoute;
-import org.maplibre.geojson.Point;
 
 public interface NavigationContract {
 
   interface View {
 
-    void setSummaryBehaviorState(int state);
-
-    void setSummaryBehaviorHideable(boolean isHideable);
-
-    boolean isSummaryBottomSheetHidden();
-
-    void updateWayNameVisibility(boolean isVisible);
-
-    void updateWayNameView(@NonNull String wayName);
-
     void resetCameraPosition();
 
-    void showRecenterBtn();
-
-    void hideRecenterBtn();
-
     void drawRoute(DirectionsRoute directionsRoute);
-
-    void addMarker(Point point);
 
     void startCamera(DirectionsRoute directionsRoute);
 
@@ -36,7 +19,9 @@ public interface NavigationContract {
 
     void updateNavigationMap(Location location);
 
-    boolean isRecenterButtonVisible();
+    void updateSpeed(double speed);
+
+    void updateSpeedLimit(org.maplibre.navigation.core.models.MaxSpeed maxSpeed);
 
     void updateCameraRouteOverview();
   }

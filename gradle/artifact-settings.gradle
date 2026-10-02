@@ -19,7 +19,7 @@ ext {
 }
 
 def getVersionName() {
-    def version = System.getenv('VERSION')
+    def version = System.getenv('VERSION') ?: project.findProperty('VERSION')
     def deducedVersion = isSnapshot() ? getSnapshotVersion(version) : version
     project.logger.info("Project version detected: ${deducedVersion}")
     return deducedVersion

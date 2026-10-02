@@ -71,20 +71,23 @@ public class LocationFpsDelegateTest {
   @Test
   public void onStart_idleListenerAdded() {
     MapLibreMap mapLibreMap = mock(MapLibreMap.class);
+    when(mapLibreMap.getCameraPosition()).thenReturn(buildCameraPosition(16d));
     LocationComponent locationComponent = mock(LocationComponent.class);
     LocationFpsDelegate locationFpsDelegate = new LocationFpsDelegate(mapLibreMap, locationComponent);
 
     locationFpsDelegate.onStart();
 
-    verify(mapLibreMap, times(2)).addOnCameraIdleListener(eq(locationFpsDelegate));
+    verify(mapLibreMap, times(1)).addOnCameraIdleListener(eq(locationFpsDelegate));
   }
 
   @Test
   public void onStop_idleListenerRemoved() {
     MapLibreMap mapLibreMap = mock(MapLibreMap.class);
+    when(mapLibreMap.getCameraPosition()).thenReturn(buildCameraPosition(16d));
     LocationComponent locationComponent = mock(LocationComponent.class);
     LocationFpsDelegate locationFpsDelegate = new LocationFpsDelegate(mapLibreMap, locationComponent);
 
+    locationFpsDelegate.onStart();
     locationFpsDelegate.onStop();
 
     verify(mapLibreMap).removeOnCameraIdleListener(eq(locationFpsDelegate));

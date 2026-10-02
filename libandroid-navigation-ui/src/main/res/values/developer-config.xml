@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default "day" style used for navigation. Override it in your app, never commit API keys here -->
+    <string name="map_style_light" translatable="false">https://tiles.openfreemap.org/styles/liberty</string>
+    <!-- Default "night" style used for navigation -->
+    <string name="map_style_dark" translatable="false">https://tiles.openfreemap.org/styles/dark</string>
+</resources>

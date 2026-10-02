@@ -22,6 +22,7 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import androidx.annotation.StyleRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
@@ -45,6 +46,7 @@ import org.maplibre.geojson.Point;
 import org.maplibre.navigation.android.navigation.ui.v5.R;
 import org.maplibre.navigation.android.navigation.ui.v5.utils.MapImageUtils;
 import org.maplibre.navigation.core.routeprogress.RouteProgress;
+import org.maplibre.navigation.core.models.DirectionsRoute;
 import org.maplibre.turf.TurfConstants;
 import org.maplibre.turf.TurfMeasurement;
 import org.maplibre.turf.TurfMisc;
@@ -66,6 +68,12 @@ class MapRouteArrow {
 
     private final MapView mapView;
     private final MapLibreMap mapLibreMap;
+
+    // Arrow geometry depends only on the current and upcoming step, so it is rebuilt on step change only
+    @Nullable
+    private DirectionsRoute arrowRoute;
+    private int arrowLegIndex = -1;
+    private int arrowStepIndex = -1;
 
     MapRouteArrow(MapView mapView, MapLibreMap mapLibreMap, @StyleRes int styleRes) {
         this.mapView = mapView;
@@ -92,9 +100,22 @@ class MapRouteArrow {
         }
         updateVisibilityTo(true);
 
+        if (isSameStep(routeProgress)) {
+            return;
+        }
+        arrowRoute = routeProgress.getDirectionsRoute();
+        arrowLegIndex = routeProgress.getLegIndex();
+        arrowStepIndex = routeProgress.getStepIndex();
+
         List<Point> maneuverPoints = obtainArrowPointsFrom(routeProgress);
         updateArrowShaftWith(maneuverPoints);
         updateArrowHeadWith(maneuverPoints);
+    }
+
+    private boolean isSameStep(RouteProgress routeProgress) {
+        return arrowRoute == routeProgress.getDirectionsRoute()
+                && arrowLegIndex == routeProgress.getLegIndex()
+                && arrowStepIndex == routeProgress.getStepIndex();
     }
 
     void updateVisibilityTo(boolean visible) {

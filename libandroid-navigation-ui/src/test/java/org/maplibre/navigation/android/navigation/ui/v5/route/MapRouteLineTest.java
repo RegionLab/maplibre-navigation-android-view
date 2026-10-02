@@ -179,9 +179,9 @@ public class MapRouteLineTest extends BaseTest {
 
     verify(style).addLayer(routeLayer);
     verify(style).addLayer(routeShieldLayer);
-    verify(style).addLayer(wayPointLayer);
+    verify(style, times(0)).addLayer(wayPointLayer);
     verify(style).addSource(routeLineSource);
-    verify(style).addSource(wayPointSource);
+    verify(style, times(0)).addSource(wayPointSource);
 
     verify(routeLineSource, times(0)).setGeoJson(any(FeatureCollection.class));
     verify(wayPointSource, times(0)).setGeoJson(any(FeatureCollection.class));

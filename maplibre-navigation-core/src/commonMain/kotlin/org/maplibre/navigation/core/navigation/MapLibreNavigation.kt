@@ -58,7 +58,7 @@ import kotlin.jvm.JvmOverloads
  * @see MapLibreNavigationOptions
  */
 open class MapLibreNavigation @JvmOverloads constructor(
-    val options: MapLibreNavigationOptions = MapLibreNavigationOptions(),
+    var options: MapLibreNavigationOptions = MapLibreNavigationOptions(),
     /**
      * Navigation needs an instance of location engine in order to acquire user location information
      * and handle events based off of the current information. By default, a LOST location engine is
@@ -115,6 +115,10 @@ open class MapLibreNavigation @JvmOverloads constructor(
     }
 
     private val navigationRunnerJob = Job()
+    /**
+     * Options the default [MapLibreNavigationEngine] was created with, null for an injected engine.
+     */
+    private var defaultEngineOptions: MapLibreNavigationOptions? = null
     private var mapLibreNavigationEngine: NavigationEngine? = null
         set(value) {
             // Stop previous started navigation session to avoid leaks
@@ -341,12 +345,17 @@ open class MapLibreNavigation @JvmOverloads constructor(
      * @return current instance of navigation engine
      */
     private fun getNavigationEngineInternal(): NavigationEngine {
-        if (mapLibreNavigationEngine == null) {
+        val currentEngine = mapLibreNavigationEngine
+        // The default engine captures options (e.g. location accuracy threshold) on creation,
+        // so recreate it when options were replaced while navigation is not running.
+        val hasStaleOptions = defaultEngineOptions != null && defaultEngineOptions !== options
+        if (currentEngine == null || (hasStaleOptions && !currentEngine.isRunning())) {
             mapLibreNavigationEngine = MapLibreNavigationEngine(
                 mapLibreNavigation = this,
                 routeUtils = routeUtils,
                 backgroundScopeContext = Dispatchers.Default + navigationRunnerJob
             )
+            defaultEngineOptions = options
         }
 
         return mapLibreNavigationEngine!!
