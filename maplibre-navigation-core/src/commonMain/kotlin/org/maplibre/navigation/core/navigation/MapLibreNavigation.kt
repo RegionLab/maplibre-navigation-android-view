@@ -345,7 +345,7 @@ open class MapLibreNavigation @JvmOverloads constructor(
             mapLibreNavigationEngine = MapLibreNavigationEngine(
                 mapLibreNavigation = this,
                 routeUtils = routeUtils,
-                backgroundScope = CoroutineScope(Dispatchers.Default + navigationRunnerJob)
+                backgroundScopeContext = Dispatchers.Default + navigationRunnerJob
             )
         }
 

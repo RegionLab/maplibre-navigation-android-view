@@ -5,6 +5,11 @@ MapLibre welcomes participation and contributions from everyone.
 
 ## Unreleased
 
+## v5.0.0 - Aug 26, 2026
+
+- Use `LocationEngine.Request` also in iOS implementation
+- **BREAKING:** Generalize `LocationEngine.Request` to make it useful for Android & iOS platform
+- Fix crash caused by growing notification size [#200](https://github.com/maplibre/maplibre-navigation-android/pull/200)
 - Add JS, Wasm JS and JVM multiplatform exports [#231](https://github.com/maplibre/maplibre-navigation-android/pull/231)
 - Add notification property to `RouteLeg` [#230](https://github.com/maplibre/maplibre-navigation-android/pull/230)
 

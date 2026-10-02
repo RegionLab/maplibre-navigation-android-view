@@ -6,9 +6,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.maplibre.navigation.core.location.Location
 import org.maplibre.navigation.core.location.LocationValidator
 import org.maplibre.navigation.core.location.engine.LocationEngine
+import org.maplibre.navigation.core.location.engine.LocationEngine.Request.Accuracy
 import org.maplibre.navigation.core.milestone.Milestone
 import org.maplibre.navigation.core.models.DirectionsRoute
 import org.maplibre.navigation.core.navigation.MapLibreNavigation
@@ -20,6 +22,7 @@ import org.maplibre.navigation.core.navigation.NavigationIndices
 import org.maplibre.navigation.core.navigation.NavigationRouteProcessor
 import org.maplibre.navigation.core.routeprogress.RouteProgress
 import org.maplibre.navigation.core.utils.RouteUtils
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Default implementation for [NavigationEngine] which is responsible for fetching location updates
@@ -29,9 +32,14 @@ open class MapLibreNavigationEngine(
     private val mapLibreNavigation: MapLibreNavigation,
     private val routeUtils: RouteUtils,
     private val locationValidator: LocationValidator = LocationValidator(mapLibreNavigation.options.locationAcceptableAccuracyInMetersThreshold),
-    private val backgroundScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val mainScopeContext: CoroutineContext = Dispatchers.Main,
+    private val backgroundScopeContext: CoroutineContext = Dispatchers.Default,
 ) : NavigationEngine {
+
+    private val mainScope: CoroutineScope = CoroutineScope(mainScopeContext)
+
+    private val backgroundScope: CoroutineScope = CoroutineScope(backgroundScopeContext)
+
     private val locationEngine: LocationEngine
         get() = mapLibreNavigation.locationEngine
 
@@ -46,7 +54,7 @@ open class MapLibreNavigationEngine(
     /**
      * Start navigation for the given route.
      *
-     * This call will starting listening to location updates and process this data to update to the current navigation state.
+     * This call will start listening to location updates and process this data to update to the current navigation state.
      * This will run until the [stopNavigation] is called.
      */
     override fun startNavigation(route: DirectionsRoute) {
@@ -57,12 +65,15 @@ open class MapLibreNavigationEngine(
                 locationEngine.getLastLocation() ?: routeUtils.createFirstLocationFromRoute(route)
             )
 
-            locationEngine.listenToLocation(
-                LocationEngine.Request(
-                    minIntervalMilliseconds = LOCATION_ENGINE_INTERVAL,
-                    maxIntervalMilliseconds = LOCATION_ENGINE_INTERVAL,
-                )
-            ).collect(::processLocationAndIndexUpdate)
+            withContext(mainScopeContext) {
+                locationEngine.listenToLocation(
+                    LocationEngine.Request(
+                        accuracy = Accuracy.HIGH,
+                        minUpdateDistanceMeters = LOCATION_UPDATE_MINIMUM_METERS,
+                        intervalMilliseconds = LOCATION_UPDATE_INTERVAL_MILLISECONDS,
+                    )
+                ).collect(::processLocationAndIndexUpdate)
+            }
         }
     }
 
@@ -93,7 +104,10 @@ open class MapLibreNavigationEngine(
      *
      * @param rawLocation hold location, navigation (with options), and distances away from maneuver
      */
-     suspend fun processLocationAndIndexUpdate(rawLocation: Location, index: NavigationIndices? = null) {
+    suspend fun processLocationAndIndexUpdate(
+        rawLocation: Location,
+        index: NavigationIndices? = null
+    ) = withContext(backgroundScopeContext) {
         processingMutex.withLock {
             // Index is set inside the mutex to avoid race conditions.
             index?.let {
@@ -101,7 +115,7 @@ open class MapLibreNavigationEngine(
             }
 
             if (!locationValidator.isValidUpdate(rawLocation)) {
-                return
+                return@withContext
             }
 
             val routeProgress = navigationRouteProcessor
@@ -214,6 +228,7 @@ open class MapLibreNavigationEngine(
     }
 
     companion object {
-        const val LOCATION_ENGINE_INTERVAL = 1000L
+        const val LOCATION_UPDATE_INTERVAL_MILLISECONDS = 1000L
+        const val LOCATION_UPDATE_MINIMUM_METERS = 0f
     }
 }

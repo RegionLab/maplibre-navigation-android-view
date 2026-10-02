@@ -67,10 +67,9 @@ open class GoogleLocationEngine(
     }
 
     private fun toGMSLocationRequest(request: LocationEngine.Request): LocationRequest {
-        return with(LocationRequest.Builder(request.maxIntervalMilliseconds)) {
-            setMinUpdateIntervalMillis(request.minIntervalMilliseconds)
+        return with(LocationRequest.Builder(request.intervalMilliseconds)) {
+            setMinUpdateIntervalMillis(request.intervalMilliseconds)
             setMinUpdateDistanceMeters(request.minUpdateDistanceMeters)
-            setMaxUpdateDelayMillis(request.maxUpdateDelayMilliseconds)
             setPriority(toGMSLocationPriority(request.accuracy))
             build()
         }
@@ -78,9 +77,9 @@ open class GoogleLocationEngine(
 
     private fun toGMSLocationPriority(accuracy: LocationEngine.Request.Accuracy): Int {
         return when (accuracy) {
-            LocationEngine.Request.Accuracy.PASSIVE -> Priority.PRIORITY_PASSIVE
+            LocationEngine.Request.Accuracy.LOWEST -> Priority.PRIORITY_PASSIVE
             LocationEngine.Request.Accuracy.LOW -> Priority.PRIORITY_LOW_POWER
-            LocationEngine.Request.Accuracy.BALANCED -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            LocationEngine.Request.Accuracy.MEDIUM -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
             LocationEngine.Request.Accuracy.HIGH -> Priority.PRIORITY_HIGH_ACCURACY
         }
     }

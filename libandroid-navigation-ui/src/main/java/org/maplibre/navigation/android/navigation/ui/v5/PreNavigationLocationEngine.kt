@@ -5,13 +5,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.navigation.core.location.Location
 import org.maplibre.navigation.core.location.LocationValidator
 import org.maplibre.navigation.core.location.engine.LocationEngine
+import org.maplibre.navigation.core.location.engine.LocationEngine.Request.Accuracy
 import org.maplibre.navigation.core.location.toAndroidLocation
 import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions.Defaults
-import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.Companion.LOCATION_ENGINE_INTERVAL
+import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.Companion.LOCATION_UPDATE_INTERVAL_MILLISECONDS
+import org.maplibre.navigation.core.navigation.engine.MapLibreNavigationEngine.Companion.LOCATION_UPDATE_MINIMUM_METERS
 
 class PreNavigationLocationEngine(
     private val locationEngine: LocationEngine,
@@ -30,12 +33,16 @@ class PreNavigationLocationEngine(
         collectLocationJob = backgroundScope.launch {
             locationEngine.getLastLocation()?.let { processLocationUpdate(it) }
 
-            locationEngine.listenToLocation(
-                LocationEngine.Request(
-                    minIntervalMilliseconds = LOCATION_ENGINE_INTERVAL,
-                    maxIntervalMilliseconds = LOCATION_ENGINE_INTERVAL,
-                )
-            ).collect(::processLocationUpdate)
+            // Android location engines need a Looper thread when no explicit looper is given
+            withContext(Dispatchers.Main) {
+                locationEngine.listenToLocation(
+                    LocationEngine.Request(
+                        accuracy = Accuracy.HIGH,
+                        minUpdateDistanceMeters = LOCATION_UPDATE_MINIMUM_METERS,
+                        intervalMilliseconds = LOCATION_UPDATE_INTERVAL_MILLISECONDS,
+                    )
+                ).collect(::processLocationUpdate)
+            }
         }
     }
 

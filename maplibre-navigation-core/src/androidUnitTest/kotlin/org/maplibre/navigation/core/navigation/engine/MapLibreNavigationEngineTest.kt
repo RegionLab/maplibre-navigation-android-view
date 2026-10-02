@@ -47,14 +47,14 @@ class MapLibreNavigationEngineTest : BaseTest() {
             mapLibreNavigation = mapLibreNavigation,
             routeUtils = mockRouteUtils,
             locationValidator = mockLocationValidator,
-            backgroundScope = testScope
+            mainScopeContext = dispatcher,
+            backgroundScopeContext = dispatcher,
         )
     }
 
     @After
     fun teardown() {
         Dispatchers.resetMain()
-        testScope.cancel()
     }
 
     @Test

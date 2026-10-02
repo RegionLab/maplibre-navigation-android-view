@@ -5,19 +5,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.navigation.core.location.Location
 import org.maplibre.navigation.core.location.toLocation
-import platform.CoreLocation.CLActivityType
 import platform.CoreLocation.CLActivityTypeAutomotiveNavigation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
-import platform.CoreLocation.kCLLocationAccuracyBest
 import platform.CoreLocation.kCLLocationAccuracyBestForNavigation
+import platform.CoreLocation.kCLLocationAccuracyHundredMeters
+import platform.CoreLocation.kCLLocationAccuracyNearestTenMeters
+import platform.CoreLocation.kCLLocationAccuracyThreeKilometers
 import platform.Foundation.NSError
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
@@ -36,31 +38,24 @@ import platform.CoreLocation.CLLocation as AppleLocation
  * @param getLocationTimeout The maximum duration to wait for the one-time location request.
  * @param enableBackgroundLocationUpdates Enables CLLocationManager's background location updates.
  */
-open class AppleLocationEngine(private val getLocationTimeout: Duration, private val enableBackgroundLocationUpdates: Boolean) :
-    LocationEngine {
+open class AppleLocationEngine(
+    private val getLocationTimeout: Duration,
+    private val enableBackgroundLocationUpdates: Boolean,
+    private val activityType: Long = CLActivityTypeAutomotiveNavigation,
+) : LocationEngine {
 
     constructor() : this(getLocationTimeout = 5.seconds, enableBackgroundLocationUpdates = true)
 
     /**
-     * A [MutableStateFlow] that holds the current location or null if no location was emitted yet.
+     * Last location to fast response on a `getLastLocation` call.
      */
-    private val locationFlow = MutableStateFlow<Location?>(null)
+    private var lastLocation: Location? = null
 
     /**
-     * A delegate instance responsible for handling location updates and emitting them to `locationFlow`.
+     * Active location delegates of `listenToLocation`. Held here so the reference stays
+     * alive — otherwise the weakly-referenced `CLLocationManager.delegate` property would be freed.
      */
-    private val locationDelegate = LocationDelegate(locationFlow)
-
-    /**
-     * The underlying CLLocationManager instance used to fetch location updates.
-     */
-    private val locationManager = CLLocationManager().also { locationManager ->
-        locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-        locationManager.activityType = CLActivityTypeAutomotiveNavigation
-        locationManager.pausesLocationUpdatesAutomatically = false
-        locationManager.allowsBackgroundLocationUpdates = enableBackgroundLocationUpdates
-        locationManager.delegate = locationDelegate
-    }
+    private val activeLocationDelegates = mutableListOf<LocationDelegate>()
 
     /**
      * Starts listening to location updates based on the provided [request].
@@ -69,8 +64,22 @@ open class AppleLocationEngine(private val getLocationTimeout: Duration, private
      * @return A [Flow] emitting location updates.
      */
     override fun listenToLocation(request: LocationEngine.Request): Flow<Location> {
+        val locationFlow = MutableStateFlow(lastLocation)
+        val delegate = LocationDelegate(locationFlow)
+        val locationManager = createLocationManager(request, delegate)
+
+        activeLocationDelegates.add(delegate)
         locationManager.startUpdatingLocation()
-        return locationFlow.filterNotNull()
+
+        return locationFlow
+            .filterNotNull()
+            .onEach { location ->
+                lastLocation = location
+            }
+            .onCompletion {
+                locationManager.stopUpdatingLocation()
+                activeLocationDelegates.remove(delegate)
+            }
     }
 
     /**
@@ -81,11 +90,30 @@ open class AppleLocationEngine(private val getLocationTimeout: Duration, private
      * @return The last known [Location] or null if unavailable or the timeout exceeded.
      */
     override suspend fun getLastLocation(): Location? {
-        return locationFlow.firstOrNull()
-            ?: getLocation(getLocationTimeout)
-                .also { currentLocation ->
-                    locationFlow.emit(currentLocation)
-                }
+        return lastLocation ?: getLocation(getLocationTimeout)
+            .also { location ->
+                lastLocation = location
+            }
+    }
+
+    /**
+     * Create a configured location manager instance based on the request.
+     */
+    private fun createLocationManager(
+        request: LocationEngine.Request,
+        delegate: LocationDelegate
+    ) = CLLocationManager().also { locationManager ->
+        locationManager.desiredAccuracy = when (request.accuracy) {
+            LocationEngine.Request.Accuracy.LOWEST -> kCLLocationAccuracyThreeKilometers
+            LocationEngine.Request.Accuracy.LOW -> kCLLocationAccuracyHundredMeters
+            LocationEngine.Request.Accuracy.MEDIUM -> kCLLocationAccuracyNearestTenMeters
+            LocationEngine.Request.Accuracy.HIGH -> kCLLocationAccuracyBestForNavigation
+        }
+        locationManager.distanceFilter = request.minUpdateDistanceMeters.toDouble()
+        locationManager.activityType = activityType
+        locationManager.pausesLocationUpdatesAutomatically = false
+        locationManager.allowsBackgroundLocationUpdates = enableBackgroundLocationUpdates
+        locationManager.delegate = delegate
     }
 
     /**

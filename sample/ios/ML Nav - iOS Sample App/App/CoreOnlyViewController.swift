@@ -6,11 +6,15 @@ import Alamofire
 
 class CoreOnlyViewController: UIViewController, MLNMapViewDelegate, ProgressChangeListener {
     
-    var maneuverText: UILabel!
+    private var maneuverText: UILabel!
+    
+    /// Held instance of MapLibre navigation. **Important** to keep this in a property to have a keep-alive instance that still works.
+    /// If we use this only locally the iOS lifecycle will throw away this instance and the navigation gets stopped.
+    private var maplibreNavigation: IOSMapLibreNavigation?
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         let mapView = MLNMapView(frame: view.bounds)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
@@ -43,20 +47,22 @@ class CoreOnlyViewController: UIViewController, MLNMapViewDelegate, ProgressChan
             let routes = directionsRoute!.routes
             let route = self.withRouteOptions(route: routes.first!)
 
+            let navigationOptions = MapLibreNavigationOptions.Builder()
+                .withSnapToRoute(snapToRoute: true)
+                .build()
             let replayLocationEngine = ReplayRouteLocationEngine()
-            
-            //            let navigationOptions = MapLibreNavigationOptions()
-            let mlNavigation = IOSMapLibreNavigation.Builder()
+            self.maplibreNavigation = IOSMapLibreNavigation.Builder()
                 .withLocationEngine(locationEngine: replayLocationEngine)
+                .withOptions(options: navigationOptions)
                 .build()
             
-            mlNavigation.addProgressChangeListener(progressChangeListener: self)
+            self.maplibreNavigation?.addProgressChangeListener(progressChangeListener: self)
             
             self.drawRoute(style: style, route: route)
-            self.enableLocationComponent(map: map, navigation: mlNavigation)
+            self.enableLocationComponent(map: map, maplibreNavigation: self.maplibreNavigation)
             
             replayLocationEngine.assign(route: route)
-            mlNavigation.startNavigation(directionsRoute: route)
+            self.maplibreNavigation?.startNavigation(directionsRoute: route)
         }
     }
     
@@ -127,8 +133,8 @@ class CoreOnlyViewController: UIViewController, MLNMapViewDelegate, ProgressChan
             user: "valhalla",
             profile: "valhalla",
             coordinates: [
-                Point(longitude: 9.6935451, latitude: 52.3758408, altitude: nil, bbox: nil),
-                Point(longitude: 9.9769191, latitude: 53.5426183, altitude: nil, bbox: nil)
+                Position(longitude: 9.6935451, latitude: 52.3758408),
+                Position(longitude: 9.9769191, latitude: 53.5426183)
             ],
             alternatives: nil,
             language: "en-US",
@@ -160,11 +166,11 @@ class CoreOnlyViewController: UIViewController, MLNMapViewDelegate, ProgressChan
     }
     
     private func drawRoute(style: MLNStyle, route: DirectionsRoute) {
-        let routeLine = LineString(polyline: route.geometry, precision: Int32(6.0), bbox: nil)
+        let routeLine = PolylineEncoding.shared.decode(encoded: route.geometry, precision: 6)
         
         // TODO (fabi755): should be done by MapLibre GeoJSON library
         // But before this is possible, we need to update the MapLibre native iOS one to the new KMP library
-        let routeFeature = MLNPolylineFeature(coordinates: routeLine.coordinates.map { pt in CLLocationCoordinate2D(latitude: pt.latitude, longitude: pt.longitude) }, count: UInt(routeLine.coordinates.count))
+        let routeFeature = MLNPolylineFeature(coordinates: routeLine.map { pt in CLLocationCoordinate2D(latitude: pt.latitude, longitude: pt.longitude) }, count: UInt(routeLine.count))
         
         let routeSource = MLNShapeSource(identifier: "route-source", shape: routeFeature, options: nil)
         style.addSource(routeSource)
@@ -176,7 +182,9 @@ class CoreOnlyViewController: UIViewController, MLNMapViewDelegate, ProgressChan
         style.addLayer(routeLayer)
     }
     
-    private func enableLocationComponent(map: MLNMapView, navigation: MapLibreNavigation) {
+    private func enableLocationComponent(map: MLNMapView, maplibreNavigation: MapLibreNavigation?) {
+        guard let navigation = maplibreNavigation else { return }
+        
         let navLocationManager = NavigationLocationManager()
         
         map.locationManager = navLocationManager

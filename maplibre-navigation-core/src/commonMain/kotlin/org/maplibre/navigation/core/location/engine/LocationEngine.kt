@@ -28,33 +28,23 @@ interface LocationEngine {
      */
     data class Request(
         /**
-         * Minimum interval between location updates. This is the fastest interval that will
-         * be used to get location updates.
+         * Accuracy type for location fetching
          */
-        val minIntervalMilliseconds: Long = 1000,
-
-        /**
-         * Maximum interval between location updates. This is the slowest interval that will
-         * be used to get location updates.
-         */
-        val maxIntervalMilliseconds: Long = 2000,
+        val accuracy: Accuracy,
 
         /**
          * Minimum distance between location updates. All updates that are closer than
          * this distance will be ignored.
          */
-        val minUpdateDistanceMeters: Float = 0f,
+        val minUpdateDistanceMeters: Float,
 
         /**
-         * Maximum delay between location updates. If the location updates occur at shorter intervals,
-         * they may be sent as a batch
+         * Minimum interval between location updates. This is the fastest interval that will
+         * be used to get location updates.
+         * **Note:** This value is ignored for iOS because there is no configuration available
+         * for it.
          */
-        val maxUpdateDelayMilliseconds: Long = 1000,
-
-        /**
-         * Accuracy type for location fetching
-         */
-        val accuracy: Accuracy = Accuracy.HIGH,
+        val intervalMilliseconds: Long,
     ) {
 
         /**
@@ -62,24 +52,31 @@ interface LocationEngine {
          */
         enum class Accuracy {
             /**
-             * Passive accuracy will don't enable any sensores or location fetching, it will only
-             * receive location updates that are fetched by other apps.
+             * A lowest accuracy.
+             * This will be `PRIORITY_PASSIVE` in Android
+             * and `CLLocationAccuracyThreeKilometers` in iOS.
              */
-            PASSIVE,
+            LOWEST,
 
             /**
              * Low accuracy for save battery power.
+             * This will be `PRIORITY_LOW_POWER` in Android
+             * and `CLLocationAccuracyHundredMeters` in iOS.
              */
             LOW,
 
             /**
-             * A balanced mid accuracy, that is saving battery power and give good location results
+             * A medium accuracy, that is saving battery power and give good location results.
+             * This will be `PRIORITY_BALANCED_POWER_ACCURACY` in Android
+             * and `kCLLocationAccuracyNearestTenMeters` in iOS.
              */
-            BALANCED,
+            MEDIUM,
 
             /**
-             * Highest possible accuracy. This all possible sensors and calculate the most recend location.
-             * Because of intensive use of sensors and GPS, it will costs more battery power.
+             * Highest possible accuracy. This all possible sensors and calculate the most recent location.
+             * Because of intensive use of sensors and GPS, it will cost more battery power.
+             * This will be `PRIORITY_HIGH_ACCURACY` in Android
+             * and `CLLocationAccuracyBestForNavigation` in iOS.
              */
             HIGH
         }
