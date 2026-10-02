@@ -4,7 +4,6 @@ import android.content.Context
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
 import org.maplibre.navigation.core.models.DirectionsResponse
 import org.maplibre.navigation.core.models.DirectionsRoute
-import org.maplibre.navigation.core.models.UnitType
 import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions
 import retrofit2.Call
 import retrofit2.Callback
@@ -19,7 +18,8 @@ internal class RouteRequestExecutor(
 
     fun request(
         request: NavigationRequest,
-        onRoutesReady: (routes: List<DirectionsRoute>, options: MapLibreNavigationOptions) -> Unit
+        onRoutesReady: (routes: List<DirectionsRoute>, options: MapLibreNavigationOptions) -> Unit,
+        onError: (RouteRequestException) -> Unit,
     ): NavigationRoute {
         cancel()
         val navigationSource = request.routingService
@@ -27,12 +27,15 @@ internal class RouteRequestExecutor(
             origin(request.origin)
             destination(request.destination)
             request.stops?.forEach { addWaypoint(it) }
-            voiceUnits(UnitType.METRIC)
+            voiceUnits(request.voiceUnits)
             language(request.language)
-            alternatives(true)
+            // Only the first route is used for navigation
+            alternatives(false)
             if (navigationSource is RoutingService.GraphHopper) {
                 user("gh")
-                profile("car")
+                profile(request.profile ?: "car")
+            } else {
+                request.profile?.let { profile(it) }
             }
             accessToken(navigationSource.accessToken)
             baseUrl(navigationSource.baseUrl)
@@ -50,18 +53,31 @@ internal class RouteRequestExecutor(
                 call: Call<DirectionsResponse>,
                 response: Response<DirectionsResponse>
             ) {
-                Timber.d("MAPLIBRE Response: ${response.body()?.toJson()}")
+                if (activeRouteRequest !== navigationRoute) {
+                    return
+                }
+                activeRouteRequest = null
+                if (!response.isSuccessful) {
+                    Timber.w("MAPLIBRE Route request failed with HTTP ${response.code()}")
+                    onError(RouteRequestException("Route request failed with HTTP ${response.code()}"))
+                    return
+                }
                 val routes = response.body()?.routes.orEmpty()
                 if (routes.isEmpty()) {
                     Timber.w("MAPLIBRE Route request completed with empty routes.")
+                    onError(RouteRequestException("No routes found"))
                     return
                 }
-                val maplibreResponse = DirectionsResponse.fromJson(response.body()!!.toJson())
-                onRoutesReady(maplibreResponse.routes, request.navigationOptions)
+                onRoutesReady(routes, request.navigationOptions)
             }
 
             override fun onFailure(call: Call<DirectionsResponse>, throwable: Throwable) {
+                if (call.isCanceled || activeRouteRequest !== navigationRoute) {
+                    return
+                }
+                activeRouteRequest = null
                 Timber.e(throwable, "MAPLIBRE onFailure: navigation.getRoute()")
+                onError(RouteRequestException("Route request failed", throwable))
             }
         })
         return navigationRoute
@@ -72,3 +88,5 @@ internal class RouteRequestExecutor(
         activeRouteRequest = null
     }
 }
+
+class RouteRequestException(message: String, cause: Throwable? = null) : Exception(message, cause)

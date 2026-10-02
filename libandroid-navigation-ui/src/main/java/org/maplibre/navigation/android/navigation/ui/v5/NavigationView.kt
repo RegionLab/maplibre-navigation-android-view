@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.annotation.UiThread
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.os.BundleCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -71,9 +72,13 @@ class NavigationView @JvmOverloads constructor(
     private var onTrackingChangedListener: NavigationOnCameraTrackingChangedListener? = null
     private var mapInstanceState: NavigationMapLibreMapInstanceState? = null
     private var isMapInitialized = false
+    private var isMapRequested = false
     private var isSubscribed = false
     private val lifecycleRegistry = LifecycleRegistry(this)
     private var onMapReadyCallback: OnMapReadyCallback? = null
+    private var onNavigationReadyCallback: OnNavigationReadyCallback? = null
+    private var initialMapCameraPosition: CameraPosition? = null
+    private var pendingNavigationStart: (() -> Unit)? = null
     private var symbolManager: SymbolManager? = null
     private var routeRequestExecutor: RouteRequestExecutor? = null
     private var enableInstructionList = true
@@ -110,7 +115,7 @@ class NavigationView @JvmOverloads constructor(
         mapStyleUri: String? = null
     ) {
         mapView.onCreate(savedInstanceState)
-        updatePresenterState(savedInstanceState)
+        savedInstanceState?.let(::restoreNavigationMapInstanceState)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         this.mapStyleUri = mapStyleUri
         routeRequestExecutor = RouteRequestExecutor(context)
@@ -135,34 +140,26 @@ class NavigationView @JvmOverloads constructor(
     }
 
     /**
-     * Used to store the bottomsheet state and re-center
-     * button visibility.  As well as anything the [MapView]
-     * needs to store in the bundle.
+     * Stores the [MapView] state and the navigation map settings (camera tracking mode, padding).
+     *
+     * Navigation itself is not kept across activity recreation, it is stopped in [onDestroy].
      *
      * @param outState to store state variables
      */
     fun onSaveInstanceState(outState: Bundle) {
-        val navigationViewInstanceState = NavigationViewInstanceState(
-            instructionView.isShowingInstructionList
-        )
-        val instanceKey = context.getString(R.string.navigation_view_instance_state)
-        outState.putParcelable(instanceKey, navigationViewInstanceState)
-        outState.putBoolean(
-            context.getString(R.string.navigation_running),
-            navigationViewModel.isRunning
-        )
         mapView.onSaveInstanceState(outState)
         saveNavigationMapInstanceState(outState)
     }
 
     /**
-     * Used to re-center
-     * button visibility.  As well as the [MapView]
-     * position prior to rotation.
+     * Restores the navigation map settings stored by [onSaveInstanceState].
+     * Not required if the same bundle was already passed to [onCreate].
      *
      * @param savedInstanceState to extract state variables
      */
     fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        restoreNavigationMapInstanceState(savedInstanceState)
+        mapInstanceState?.let { navigationMap?.restoreFrom(it) }
     }
 
     /**
@@ -195,11 +192,13 @@ class NavigationView @JvmOverloads constructor(
 
     fun onPause() {
         mapView.onPause()
+        lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
     fun onStop() {
         mapView.onStop()
         navigationMap?.onStop()
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 
     /**
@@ -213,27 +212,53 @@ class NavigationView @JvmOverloads constructor(
      * @since 0.6.0
      */
     override fun onMapReady(mapLibreMap: MapLibreMap) {
+        initialMapCameraPosition?.let { mapLibreMap.cameraPosition = it }
         val onStyleLoaded = OnStyleLoaded { style ->
             initializeSymbolManager(mapView, mapLibreMap, style)
             initializeNavigationMap(mapView, mapLibreMap)
             initializeWayNameListener()
             initializePreNavigationLocationEngine(mapLibreMap)
-            onMapReadyCallback?.onMapReady(mapLibreMap)
             isMapInitialized = true
+            onMapReadyCallback?.onMapReady(mapLibreMap)
+            onNavigationReadyCallback?.onNavigationReady(navigationViewModel.isRunning)
+            pendingNavigationStart?.let {
+                pendingNavigationStart = null
+                it()
+            }
         }
 
         mapStyleUri?.let { mapLibreMap.setStyle(Style.Builder().fromUri(it), onStyleLoaded) }
             ?: mapLibreMap.setStyle(ThemeSwitcher.retrieveMapStyle(context), onStyleLoaded)
     }
 
-    fun startNavigation(request: NavigationRequest) {
-        navigationRoute = routeRequestExecutor?.request(request, ::startNavigation)
+    /**
+     * Requests a route and starts navigation along the first returned route.
+     * If the map is not ready yet, navigation is started as soon as it is.
+     *
+     * @param request route request parameters
+     * @param onError called when the route request fails or returns no routes
+     */
+    @JvmOverloads
+    fun startNavigation(
+        request: NavigationRequest,
+        onError: ((RouteRequestException) -> Unit)? = null
+    ) {
+        pendingNavigationStart = null
+        navigationRoute = routeRequestExecutor?.request(
+            request,
+            onRoutesReady = ::startNavigation,
+            onError = { error -> onError?.invoke(error) }
+        )
     }
 
     private fun startNavigation(
         routes: List<DirectionsRoute>,
         navigationOptions: MapLibreNavigationOptions
     ) {
+        if (!isMapInitialized) {
+            pendingNavigationStart = { startNavigation(routes, navigationOptions) }
+            return
+        }
         preNavigationLocationEngine?.stop()
         val route = routes.first()
         val options = NavigationViewOptions.builder()
@@ -327,6 +352,7 @@ class NavigationView @JvmOverloads constructor(
      */
     @UiThread
     fun stopNavigation() {
+        pendingNavigationStart = null
         preNavigationLocationEngine?.start()
         routeRequestExecutor?.cancel()
         navigationRoute = null
@@ -336,24 +362,17 @@ class NavigationView @JvmOverloads constructor(
     }
 
 
-    fun initialize(onNavigationReadyCallback: OnNavigationReadyCallback) {
-        this.onMapReadyCallback = onMapReadyCallback
-        if (!isMapInitialized) {
-            mapView.getMapAsync(this)
-            navigationViewModel.initializeNavigation(false)
-        }
-    }
-
+    /**
+     * Should be called after [NavigationView.onCreate].
+     */
+    @JvmOverloads
     fun initialize(
         onNavigationReadyCallback: OnNavigationReadyCallback,
-        initialMapCameraPosition: CameraPosition?
+        initialMapCameraPosition: CameraPosition? = null
     ) {
-        this.onMapReadyCallback = onMapReadyCallback
-        // initialMapCameraPosition is not yet supported in this Kotlin version but we add the signature for compatibility
-        if (!isMapInitialized) {
-            mapView.getMapAsync(this)
-            navigationViewModel.initializeNavigation(false)
-        }
+        this.onNavigationReadyCallback = onNavigationReadyCallback
+        this.initialMapCameraPosition = initialMapCameraPosition
+        requestMap(shouldSimulateRoute = false)
     }
 
     /**
@@ -364,10 +383,17 @@ class NavigationView @JvmOverloads constructor(
         onMapReadyCallback: OnMapReadyCallback,
     ) {
         this.onMapReadyCallback = onMapReadyCallback
-        if (!isMapInitialized) {
-            mapView.getMapAsync(this)
-            navigationViewModel.initializeNavigation(shouldSimulateRoute)
+        requestMap(shouldSimulateRoute)
+    }
+
+    private fun requestMap(shouldSimulateRoute: Boolean) {
+        // Guard against repeated initialize() calls while the map/style is still loading
+        if (isMapRequested) {
+            return
         }
+        isMapRequested = true
+        navigationViewModel.initializeNavigation(shouldSimulateRoute)
+        mapView.getMapAsync(this)
     }
 
 
@@ -510,6 +536,7 @@ class NavigationView @JvmOverloads constructor(
 
     private fun initializePreNavigationLocationEngine(map: MapLibreMap) {
         val locationEngine = navigationViewModel.retrieveNavigation()?.locationEngine ?: return
+        preNavigationLocationEngine?.stop()
         preNavigationLocationEngine = PreNavigationLocationEngine(
             locationEngine = locationEngine,
             locationComponent = map.locationComponent,
@@ -523,6 +550,14 @@ class NavigationView @JvmOverloads constructor(
 
     private fun saveNavigationMapInstanceState(outState: Bundle) {
         navigationMap?.saveStateWith(MAP_INSTANCE_STATE_KEY, outState)
+    }
+
+    private fun restoreNavigationMapInstanceState(savedInstanceState: Bundle) {
+        BundleCompat.getParcelable(
+            savedInstanceState,
+            MAP_INSTANCE_STATE_KEY,
+            NavigationMapLibreMapInstanceState::class.java
+        )?.let { mapInstanceState = it }
     }
 
     private fun updateInstructionListState(visible: Boolean) {
@@ -551,25 +586,8 @@ class NavigationView @JvmOverloads constructor(
         return intArrayOf(leftRightPadding, instructionHeight, leftRightPadding, summaryHeight)
     }
 
-    private val isChangingConfigurations: Boolean
-        get() {
-            return try {
-                (context as Activity).isChangingConfigurations
-            } catch (exception: ClassCastException) {
-                false
-            }
-        }
-
     private fun initializeNavigationPresenter() {
         navigationPresenter = NavigationPresenter(this)
-    }
-
-    private fun updatePresenterState(savedInstanceState: Bundle?) {
-        if (savedInstanceState != null) {
-            val navigationRunningKey = context.getString(R.string.navigation_running)
-            val resumeState = savedInstanceState.getBoolean(navigationRunningKey)
-            navigationPresenter.updateResumeState(resumeState)
-        }
     }
 
     private fun initializeNavigation(options: NavigationViewOptions) {
@@ -578,8 +596,10 @@ class NavigationView @JvmOverloads constructor(
         initializeNavigationListeners(options, navigationViewModel)
         setupNavigationMapLibreMap(options)
 
-        if (!isSubscribed) {
+        if (onTrackingChangedListener == null) {
             initializeOnCameraTrackingChangedListener()
+        }
+        if (!isSubscribed) {
             subscribeViewModels()
         }
     }
@@ -662,7 +682,9 @@ class NavigationView @JvmOverloads constructor(
     }
 
     private fun shutdown() {
+        pendingNavigationStart = null
         navigationMap?.removeOnCameraTrackingChangedListener(onTrackingChangedListener)
+        onTrackingChangedListener = null
         navigationMap?.onDestroy()
         preNavigationLocationEngine?.stop()
         routeRequestExecutor?.cancel()
@@ -670,9 +692,13 @@ class NavigationView @JvmOverloads constructor(
 
         navigationViewEventDispatcher?.onDestroy(navigationViewModel.retrieveNavigation())
         mapView.onDestroy()
-        navigationViewModel.onDestroy(isChangingConfigurations)
+        // NavigationViewModel lives as long as this view, so a recreated view can't pick up a
+        // running navigation: always tear it down to avoid leaking location updates and TTS.
+        navigationViewModel.onDestroy(false)
         ImageCreator.getInstance().shutdown()
         navigationMap = null
+        isMapInitialized = false
+        isMapRequested = false
     }
 
     private fun requireSymbolManager(): SymbolManager {

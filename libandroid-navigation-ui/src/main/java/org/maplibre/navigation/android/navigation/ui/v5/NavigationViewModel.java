@@ -110,6 +110,7 @@ public class NavigationViewModel {
         if (!isChangingConfigurations) {
             endNavigation();
             deactivateInstructionPlayer();
+            destroyRouter();
             isRunning = false;
             this.route.setValue(null);
         }
@@ -179,7 +180,7 @@ public class NavigationViewModel {
     }
 
     void stopNavigation() {
-        navigation.onDestroy();
+        endNavigation();
         deactivateInstructionPlayer();
     }
 
@@ -210,12 +211,6 @@ public class NavigationViewModel {
         speedLimitModel.setValue(routeProgress.getCurrentLegAnnotation() != null
             ? routeProgress.getCurrentLegAnnotation().getMaxSpeed()
             : null);
-        Double progressSpeed = routeProgress.getCurrentLegAnnotation() != null
-            ? routeProgress.getCurrentLegAnnotation().getSpeed()
-            : null;
-        if (progressSpeed != null) {
-            speedModel.setValue(progressSpeed);
-        }
     }
 
     void updateLocation(Location location) {
@@ -295,11 +290,12 @@ public class NavigationViewModel {
         SpeechPlayer speechPlayer = options.speechPlayer();
         if (speechPlayer != null) {
             this.speechPlayer = speechPlayer;
-            return;
+        } else {
+            boolean isVoiceLanguageSupported = options.directionsRoute().getVoiceLanguage() != null;
+            SpeechPlayerProvider speechPlayerProvider = initializeSpeechPlayerProvider(isVoiceLanguageSupported);
+            this.speechPlayer = new NavigationSpeechPlayer(speechPlayerProvider);
         }
-        boolean isVoiceLanguageSupported = options.directionsRoute().getVoiceLanguage() != null;
-        SpeechPlayerProvider speechPlayerProvider = initializeSpeechPlayerProvider(isVoiceLanguageSupported);
-        this.speechPlayer = new NavigationSpeechPlayer(speechPlayerProvider);
+        this.speechPlayer.setMuted(isMuted);
     }
 
     @NonNull
@@ -384,6 +380,8 @@ public class NavigationViewModel {
 
     private void endNavigation() {
         if (navigation != null) {
+            // onDestroy() doesn't remove faster route listeners, they would pile up on every restart
+            navigation.removeFasterRouteListener(fasterRouteListener);
             navigation.onDestroy();
         }
     }

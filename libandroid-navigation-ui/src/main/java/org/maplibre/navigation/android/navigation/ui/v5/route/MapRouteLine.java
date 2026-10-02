@@ -2,13 +2,11 @@ package org.maplibre.navigation.android.navigation.ui.v5.route;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 
 import androidx.annotation.ColorInt;
 import androidx.core.content.ContextCompat;
 
-import org.maplibre.navigation.android.navigation.ui.v5.BuildConfig;
 import org.maplibre.navigation.android.navigation.ui.v5.R;
 import org.maplibre.navigation.android.navigation.ui.v5.utils.MapUtils;
 import org.maplibre.navigation.core.models.DirectionsRoute;
@@ -38,12 +36,10 @@ import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConsta
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SOURCE_ID;
-import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_CUSTOM_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_DESTINATION_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_ORIGIN_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_PROPERTY_KEY;
-
-import timber.log.Timber;
 
 class MapRouteLine {
 
@@ -161,37 +157,22 @@ class MapRouteLine {
     alternativeRouteScale = typedArray.getFloat(
       R.styleable.NavigationMapRoute_alternativeRouteScale, 1.0f);
 
+    // Waypoint source is intentionally not added to the style: origin/destination icons are hidden,
+    // markers are managed by the app via NavigationView.addSymbol
     GeoJsonOptions wayPointGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnWaypointsFeatureCollection = waypointsFeatureCollection;
-    wayPointSource = sourceProvider.build(WAYPOINT_CUSTOM_ID, drawnWaypointsFeatureCollection, wayPointGeoJsonOptions);
-
+    wayPointSource = sourceProvider.build(WAYPOINT_SOURCE_ID, drawnWaypointsFeatureCollection, wayPointGeoJsonOptions);
 
     GeoJsonOptions routeLineGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnRouteFeatureCollection = routesFeatureCollection;
-    routeLineSource = sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions);
+    routeLineSource = addOrReuseSource(style, ROUTE_SOURCE_ID,
+      sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions),
+      drawnRouteFeatureCollection);
 
-
-    try {
-      style.addSource(wayPointSource);
-      style.addSource(routeLineSource);
-    } catch(Exception e) {
-      if (BuildConfig.DEBUG) {
-        Timber.d("Style Already exists");
-      }
-    }
-
-    // Waypoint attributes
-    int originWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_originWaypointIcon, R.drawable.ic_route_origin);
-    int destinationWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_destinationWaypointIcon, R.drawable.ic_route_destination);
     typedArray.recycle();
-
-    Drawable originIcon = drawableProvider.retrieveDrawable(originWaypointIcon);
-    Drawable destinationIcon = drawableProvider.retrieveDrawable(destinationWaypointIcon);
     belowLayer = findRouteBelowLayerId(belowLayer, style);
 
-    initializeLayers(style, layerProvider, originIcon, destinationIcon, belowLayer);
+    initializeLayers(style, layerProvider, belowLayer);
 
     this.directionsRoutes.addAll(directionsRoutes);
     this.routeFeatureCollections.addAll(routeFeatureCollections);
@@ -434,9 +415,18 @@ class MapRouteLine {
     return belowLayer;
   }
 
-  private void initializeLayers(Style style, MapRouteLayerProvider layerProvider,
-                                Drawable originIcon, Drawable destinationIcon,
-                                String belowLayer) {
+  private static GeoJsonSource addOrReuseSource(Style style, String sourceId, GeoJsonSource source,
+                                                FeatureCollection featureCollection) {
+    GeoJsonSource existingSource = style.getSourceAs(sourceId);
+    if (existingSource == null) {
+      style.addSource(source);
+      return source;
+    }
+    existingSource.setGeoJson(featureCollection);
+    return existingSource;
+  }
+
+  private void initializeLayers(Style style, MapRouteLayerProvider layerProvider, String belowLayer) {
     LineLayer routeShieldLayer = layerProvider.initializeRouteShieldLayer(
       style, routeScale, alternativeRouteScale,
       routeShieldColor, alternativeRouteShieldColor
@@ -452,12 +442,6 @@ class MapRouteLine {
     );
     MapUtils.addLayerToMap(style, routeLayer, belowLayer);
     routeLayerIds.add(routeLayer.getId());
-
-    SymbolLayer wayPointLayer = layerProvider.initializeWayPointLayer(
-      style, originIcon, destinationIcon
-    );
-    MapUtils.addLayerToMap(style, wayPointLayer, belowLayer);
-    routeLayerIds.add(wayPointLayer.getId());
   }
 
   private void updateAlternativeVisibilityTo(boolean isAlternativeVisible) {

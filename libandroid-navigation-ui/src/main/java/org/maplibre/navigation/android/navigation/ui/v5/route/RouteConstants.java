@@ -10,7 +10,6 @@ class RouteConstants {
   static final String ROUTE_SHIELD_LAYER_ID = "mapbox-navigation-route-shield-layer";
   static final String WAYPOINT_SOURCE_ID = "mapbox-navigation-waypoint-source";
 
-  static final String WAYPOINT_CUSTOM_ID = "mapbox-waypoint-custom-id";
   static final String WAYPOINT_LAYER_ID = "mapbox-navigation-waypoint-layer";
   static final int TWO_POINTS = 2;
   static final int THIRTY = 30;

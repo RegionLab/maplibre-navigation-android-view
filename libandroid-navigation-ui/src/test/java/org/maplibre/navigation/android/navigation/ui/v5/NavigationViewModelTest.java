@@ -2,6 +2,7 @@ package org.maplibre.navigation.android.navigation.ui.v5;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,6 +13,7 @@ import android.app.Application;
 import org.maplibre.navigation.core.models.DirectionsRoute;
 import org.maplibre.navigation.android.navigation.ui.v5.voice.SpeechPlayer;
 import org.maplibre.navigation.core.navigation.MapLibreNavigation;
+import org.maplibre.navigation.core.route.FasterRouteListener;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,7 +23,7 @@ import org.robolectric.RobolectricTestRunner;
 public class NavigationViewModelTest {
 
   @Test
-  public void stopNavigation_progressListenersAreRemoved() {
+  public void stopNavigation_navigationIsDestroyed() {
     Application application = mock(Application.class);
     MapLibreNavigation navigation = mock(MapLibreNavigation.class);
     NavigationViewRouter router = mock(NavigationViewRouter.class);
@@ -29,11 +31,11 @@ public class NavigationViewModelTest {
 
     viewModel.stopNavigation();
 
-    verify(navigation).removeProgressChangeListener(null);
+    verify(navigation).onDestroy();
   }
 
   @Test
-  public void stopNavigation_milestoneListenersAreRemoved() {
+  public void stopNavigation_fasterRouteListenerIsRemoved() {
     Application application = mock(Application.class);
     MapLibreNavigation navigation = mock(MapLibreNavigation.class);
     NavigationViewRouter router = mock(NavigationViewRouter.class);
@@ -41,7 +43,7 @@ public class NavigationViewModelTest {
 
     viewModel.stopNavigation();
 
-    verify(navigation).removeMilestoneEventListener(null);
+    verify(navigation).removeFasterRouteListener(any(FasterRouteListener.class));
   }
 
   @Test
