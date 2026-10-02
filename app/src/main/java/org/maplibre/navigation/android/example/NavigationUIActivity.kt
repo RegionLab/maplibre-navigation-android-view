@@ -64,7 +64,7 @@ class NavigationUIActivity : ComponentActivity(), MapLibreMap.OnMapClickListener
         binding.navigationView.apply {
             onCreate(
                 savedInstanceState,
-                mapStyleUri = "https://tiles.openfreemap.org/styles/liberty"
+                mapStyleUri = getString(R.string.map_style_light)
             )
             initialize(
                 simulateRoute,
