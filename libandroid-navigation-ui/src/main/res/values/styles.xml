@@ -93,7 +93,9 @@
     </style>
 
     <style name="NavigationLocationLayerStyle" parent="maplibre_LocationLayer">
-        <item name="maplibre_trackingAnimationDurationMultiplier">2.0</item>
+        <!-- Tracking animations must end around the next location update: with a larger multiplier
+             they overlap, so several camera and puck animators run at once -->
+        <item name="maplibre_trackingAnimationDurationMultiplier">1.1</item>
         <item name="maplibre_trackingGesturesManagement">true</item>
     </style>
 
