@@ -75,6 +75,8 @@ class NavigationView @JvmOverloads constructor(
     private var isMapInitialized = false
     private var isMapRequested = false
     private var isSubscribed = false
+    private var isStarted = false
+    private var isResumed = false
     private val lifecycleRegistry = LifecycleRegistry(this)
     private var onMapReadyCallback: OnMapReadyCallback? = null
     private var onNavigationReadyCallback: OnNavigationReadyCallback? = null
@@ -190,7 +192,14 @@ class NavigationView @JvmOverloads constructor(
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
     }
 
+    // MapView lifecycle calls must be balanced: hosts that forward both the activity lifecycle and
+    // their own pause/resume (e.g. screens covered by overlays) would otherwise send duplicates,
+    // so repeated calls are ignored and onStop() pauses first if onPause() was skipped.
     fun onStart() {
+        if (isStarted) {
+            return
+        }
+        isStarted = true
         mapView.onStart()
         navigationMap?.onStart()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -200,16 +209,29 @@ class NavigationView @JvmOverloads constructor(
     }
 
     fun onResume() {
+        if (isResumed) {
+            return
+        }
+        isResumed = true
         mapView.onResume()
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
     }
 
     fun onPause() {
+        if (!isResumed) {
+            return
+        }
+        isResumed = false
         mapView.onPause()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
     fun onStop() {
+        if (!isStarted) {
+            return
+        }
+        onPause()
+        isStarted = false
         mapView.onStop()
         navigationMap?.onStop()
         // No need for GPS updates while the map isn't visible and navigation isn't running
@@ -776,6 +798,8 @@ class NavigationView @JvmOverloads constructor(
         mapStyleOptimizer = null
         isMapInitialized = false
         isMapRequested = false
+        isStarted = false
+        isResumed = false
     }
 
     private fun requireSymbolManager(): SymbolManager {
