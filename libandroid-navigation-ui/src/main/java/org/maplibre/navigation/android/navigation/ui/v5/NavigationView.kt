@@ -84,6 +84,8 @@ class NavigationView @JvmOverloads constructor(
     private var mapStyleOptimizer: NavigationMapStyleOptimizer? = null
     private var lightweightNavigationMap = true
     private var lightweightIdleMap = false
+    private var idleMaxFps = UNLIMITED_FPS
+    private var appliedIdleMaxFps = UNLIMITED_FPS
     private val onStyleChangedListener = MapView.OnDidFinishLoadingStyleListener {
         // A new style (e.g. day/night switch) brings its own layers, optimize them too
         mapStyleOptimizer?.onStyleLoaded()
@@ -233,6 +235,7 @@ class NavigationView @JvmOverloads constructor(
             mapStyleOptimizer = NavigationMapStyleOptimizer(mapLibreMap)
             // configureUi() may have been called before the style was ready
             updateMapStyleOptimization()
+            updateIdleMaxFps()
             mapView.addOnDidFinishLoadingStyleListener(onStyleChangedListener)
             initializeWayNameListener()
             initializePreNavigationLocationEngine(mapLibreMap)
@@ -287,6 +290,7 @@ class NavigationView @JvmOverloads constructor(
         showInstructionView()
         initializeNavigation(options.build())
         updateMapStyleOptimization()
+        updateIdleMaxFps()
     }
 
     override fun resetCameraPosition() {
@@ -383,6 +387,7 @@ class NavigationView @JvmOverloads constructor(
         navigationPresenter.onNavigationStopped()
         navigationViewModel.stopNavigation()
         updateMapStyleOptimization()
+        updateIdleMaxFps()
     }
 
 
@@ -465,20 +470,26 @@ class NavigationView @JvmOverloads constructor(
      * decorative patterns) and disable tile prefetching. Restored when navigation stops.
      * @param lightweightIdleMap the same lightweight map while navigation is not running, for
      * apps that draw their own routes and only use this view as a map. Off by default.
+     * @param idleMaxFps maximum frames per second of the map while navigation is not running,
+     * for weak devices. During navigation the map FPS is throttled by the navigation map.
+     * Unlimited ([Int.MAX_VALUE]) by default.
      */
     @JvmOverloads
     fun configureUi(
         enableInstructionList: Boolean = true,
         showSpeedLimitView: Boolean = false,
         lightweightNavigationMap: Boolean = true,
-        lightweightIdleMap: Boolean = false
+        lightweightIdleMap: Boolean = false,
+        idleMaxFps: Int = UNLIMITED_FPS
     ) {
         this.enableInstructionList = enableInstructionList
         this.showSpeedLimitView = showSpeedLimitView
         this.lightweightNavigationMap = lightweightNavigationMap
         this.lightweightIdleMap = lightweightIdleMap
+        this.idleMaxFps = idleMaxFps
         applyUiConfiguration()
         updateMapStyleOptimization()
+        updateIdleMaxFps()
     }
 
     private fun updateMapStyleOptimization() {
@@ -489,6 +500,19 @@ class NavigationView @JvmOverloads constructor(
         } else {
             optimizer.restore()
         }
+    }
+
+    /**
+     * Caps the map FPS while navigation is not running; the cap is lifted when it starts so it
+     * doesn't fight with the navigation FPS throttling.
+     */
+    private fun updateIdleMaxFps() {
+        val maxFps = if (isNavigationActive) UNLIMITED_FPS else idleMaxFps
+        if (maxFps == appliedIdleMaxFps) {
+            return
+        }
+        appliedIdleMaxFps = maxFps
+        mapView.setMaximumFps(maxFps)
     }
 
     private fun initializeView() {
@@ -825,6 +849,7 @@ class NavigationView @JvmOverloads constructor(
 
     companion object {
         private const val MAP_INSTANCE_STATE_KEY = "navigation_maplibre_map_instance_state"
+        private const val UNLIMITED_FPS = Int.MAX_VALUE
     }
 
     override val lifecycle: Lifecycle
