@@ -83,6 +83,7 @@ class NavigationView @JvmOverloads constructor(
     private var isNavigationActive = false
     private var mapStyleOptimizer: NavigationMapStyleOptimizer? = null
     private var lightweightNavigationMap = true
+    private var lightweightIdleMap = false
     private val onStyleChangedListener = MapView.OnDidFinishLoadingStyleListener {
         // A new style (e.g. day/night switch) brings its own layers, optimize them too
         mapStyleOptimizer?.onStyleLoaded()
@@ -230,6 +231,8 @@ class NavigationView @JvmOverloads constructor(
             initializeSymbolManager(mapView, mapLibreMap, style)
             initializeNavigationMap(mapView, mapLibreMap)
             mapStyleOptimizer = NavigationMapStyleOptimizer(mapLibreMap)
+            // configureUi() may have been called before the style was ready
+            updateMapStyleOptimization()
             mapView.addOnDidFinishLoadingStyleListener(onStyleChangedListener)
             initializeWayNameListener()
             initializePreNavigationLocationEngine(mapLibreMap)
@@ -460,23 +463,28 @@ class NavigationView @JvmOverloads constructor(
      * @param lightweightNavigationMap while navigating, hide map layers that are expensive to
      * render but not useful while driving (3D buildings, POIs, water labels, one-way arrows,
      * decorative patterns) and disable tile prefetching. Restored when navigation stops.
+     * @param lightweightIdleMap the same lightweight map while navigation is not running, for
+     * apps that draw their own routes and only use this view as a map. Off by default.
      */
     @JvmOverloads
     fun configureUi(
         enableInstructionList: Boolean = true,
         showSpeedLimitView: Boolean = false,
-        lightweightNavigationMap: Boolean = true
+        lightweightNavigationMap: Boolean = true,
+        lightweightIdleMap: Boolean = false
     ) {
         this.enableInstructionList = enableInstructionList
         this.showSpeedLimitView = showSpeedLimitView
         this.lightweightNavigationMap = lightweightNavigationMap
+        this.lightweightIdleMap = lightweightIdleMap
         applyUiConfiguration()
         updateMapStyleOptimization()
     }
 
     private fun updateMapStyleOptimization() {
         val optimizer = mapStyleOptimizer ?: return
-        if (isNavigationActive && lightweightNavigationMap) {
+        val isLightweight = if (isNavigationActive) lightweightNavigationMap else lightweightIdleMap
+        if (isLightweight) {
             optimizer.apply()
         } else {
             optimizer.restore()
