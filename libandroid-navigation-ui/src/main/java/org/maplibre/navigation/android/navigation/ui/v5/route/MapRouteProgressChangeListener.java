@@ -1,5 +1,7 @@
 package org.maplibre.navigation.android.navigation.ui.v5.route;
 
+import org.maplibre.geojson.Point;
+
 import org.maplibre.navigation.core.location.Location;
 
 import org.maplibre.navigation.core.models.DirectionsRoute;
@@ -10,9 +12,10 @@ import java.util.List;
 
 class MapRouteProgressChangeListener implements ProgressChangeListener {
 
-  private final MapRouteLine routeLine;
-  private final MapRouteArrow routeArrow;
+  private MapRouteLine routeLine;
+  private MapRouteArrow routeArrow;
   private boolean isVisible = true;
+  private boolean isVanishingEnabled = false;
 
   MapRouteProgressChangeListener(MapRouteLine routeLine, MapRouteArrow routeArrow) {
     this.routeLine = routeLine;
@@ -29,6 +32,27 @@ class MapRouteProgressChangeListener implements ProgressChangeListener {
     int primaryRouteIndex = routeLine.retrievePrimaryRouteIndex();
     addNewRoute(currentRoute, directionsRoutes, primaryRouteIndex);
     routeArrow.addUpcomingManeuverArrow(routeProgress);
+    if (isVanishingEnabled) {
+      routeLine.vanishTraveledRoute(Point.fromLngLat(location.getLongitude(), location.getLatitude()));
+    }
+  }
+
+  /**
+   * Draws on a recreated route line and arrow, e.g. after a style change.
+   */
+  void updateRouteLine(MapRouteLine routeLine, MapRouteArrow routeArrow) {
+    this.routeLine = routeLine;
+    this.routeArrow = routeArrow;
+  }
+
+  void updateVanishingEnabled(boolean isEnabled) {
+    if (isVanishingEnabled == isEnabled) {
+      return;
+    }
+    isVanishingEnabled = isEnabled;
+    if (!isEnabled) {
+      routeLine.restoreTraveledRoute();
+    }
   }
 
   void updateVisibility(boolean isVisible) {

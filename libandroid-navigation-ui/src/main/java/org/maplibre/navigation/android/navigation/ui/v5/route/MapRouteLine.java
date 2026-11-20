@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.maplibre.android.style.expressions.Expression.literal;
+import static org.maplibre.navigation.core.utils.Constants.PRECISION_6;
 import static org.maplibre.android.style.layers.Property.NONE;
 import static org.maplibre.android.style.layers.Property.VISIBLE;
 import static org.maplibre.android.style.layers.PropertyFactory.visibility;
@@ -84,6 +85,10 @@ class MapRouteLine {
   private PrimaryRouteUpdateTask primaryRouteUpdateTask;
   private boolean isPrimaryRouteUpdateTaskInjected = false;
   private Handler mainHandler;
+  // Route collections last drawn with the current primary route flags, the base for trimming
+  private List<FeatureCollection> drawnRouteCollections = new ArrayList<>();
+  private RouteLineTrimmer routeLineTrimmer;
+  private LineString primaryRouteGeometry;
 
   MapRouteLine(Context context,
                Style style,
@@ -259,7 +264,62 @@ class MapRouteLine {
     return primaryRouteIndex;
   }
 
+  /**
+   * Removes the traveled part of the primary route, the line starts at the given location
+   * projected onto the route. Does nothing while the location is far from the route.
+   */
+  void vanishTraveledRoute(Point location) {
+    if (drawnRouteCollections.isEmpty() || primaryRouteIndex >= drawnRouteCollections.size()) {
+      return;
+    }
+    if (routeLineTrimmer == null) {
+      DirectionsRoute primaryRoute = directionsRoutes.get(primaryRouteIndex);
+      primaryRouteGeometry = LineString.fromPolyline(primaryRoute.getGeometry(), PRECISION_6);
+      routeLineTrimmer = new RouteLineTrimmer(primaryRouteGeometry.coordinates());
+    }
+    RouteLineTrimmer.Result result = routeLineTrimmer.trim(location);
+    if (result == null) {
+      return;
+    }
+
+    LineString remainingLine = LineString.fromLngLats(result.getRemaining());
+    int fullRouteSize = primaryRouteGeometry.coordinates().size();
+    List<Feature> routeFeatures = new ArrayList<>();
+    for (int i = drawnRouteCollections.size() - 1; i >= 0; i--) {
+      List<Feature> features = drawnRouteCollections.get(i).features();
+      if (i != primaryRouteIndex || features == null) {
+        if (features != null) {
+          routeFeatures.addAll(features);
+        }
+        continue;
+      }
+      int congestionSegment = 0;
+      for (Feature feature : features) {
+        boolean isFullRoute = feature.geometry() instanceof LineString
+          && ((LineString) feature.geometry()).coordinates().size() == fullRouteSize;
+        if (isFullRoute) {
+          routeFeatures.add(Feature.fromGeometry(remainingLine, feature.properties()));
+        } else if (congestionSegment++ >= result.getSegmentIndex()) {
+          // Congestion segments follow the route coordinates, drop the traveled ones
+          routeFeatures.add(feature);
+        }
+      }
+    }
+    routeLineSource.setGeoJson(FeatureCollection.fromFeatures(routeFeatures));
+  }
+
+  /**
+   * Shows the complete route again after {@link #vanishTraveledRoute(Point)}.
+   */
+  void restoreTraveledRoute() {
+    routeLineTrimmer = null;
+    if (!drawnRouteCollections.isEmpty()) {
+      drawRoutes(drawnRouteCollections);
+    }
+  }
+
   private void drawRoutes(List<FeatureCollection> routeFeatureCollections) {
+    drawnRouteCollections = new ArrayList<>(routeFeatureCollections);
     List<Feature> routeFeatures = new ArrayList<>();
     for (int i = routeFeatureCollections.size() - 1; i >= 0; i--) {
       routeFeatures.addAll(routeFeatureCollections.get(i).features());
@@ -274,6 +334,9 @@ class MapRouteLine {
   }
 
   private void clearRouteListData() {
+    drawnRouteCollections = new ArrayList<>();
+    routeLineTrimmer = null;
+    primaryRouteGeometry = null;
     if (!directionsRoutes.isEmpty()) {
       directionsRoutes.clear();
     }
@@ -357,6 +420,9 @@ class MapRouteLine {
   }
 
   private void updateRoutesFor(int newPrimaryIndex) {
+    if (this.primaryRouteIndex != newPrimaryIndex) {
+      routeLineTrimmer = null;
+    }
     this.primaryRouteIndex = newPrimaryIndex;
     if (newPrimaryIndex < 0 || newPrimaryIndex > routeFeatureCollections.size() - 1) {
       return;
