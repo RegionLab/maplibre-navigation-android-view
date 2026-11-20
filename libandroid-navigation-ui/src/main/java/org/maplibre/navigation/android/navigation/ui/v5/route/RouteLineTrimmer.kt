@@ -37,6 +37,25 @@ internal class RouteLineTrimmer @JvmOverloads constructor(
      * far from the route
      */
     fun trim(location: Point): Result? {
+        val located = locate(location) ?: return null
+        val remaining = ArrayList<Point>(coordinates.size - located.segmentIndex)
+        remaining += located.point
+        remaining += coordinates.subList(located.segmentIndex + 1, coordinates.size)
+        return Result(remaining, located.segmentIndex)
+    }
+
+    class Located(
+        /** Index of the route segment the location is projected onto. */
+        val segmentIndex: Int,
+        /** Location projected onto the route. */
+        val point: Point,
+    )
+
+    /**
+     * @return the location projected onto the route, or null if it didn't change noticeably or
+     * [location] is too far from the route
+     */
+    fun locate(location: Point): Located? {
         if (coordinates.size < 2) {
             return null
         }
@@ -59,10 +78,7 @@ internal class RouteLineTrimmer @JvmOverloads constructor(
         }
         segmentIndex = projection.segment
         lastStart = projection.point
-        val remaining = ArrayList<Point>(coordinates.size - projection.segment)
-        remaining += projection.point
-        remaining += coordinates.subList(projection.segment + 1, coordinates.size)
-        return Result(remaining, projection.segment)
+        return Located(projection.segment, projection.point)
     }
 
     private class Projection(val segment: Int, val point: Point, val distance: Double)

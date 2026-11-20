@@ -28,14 +28,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.maplibre.android.style.expressions.Expression.literal;
-import static org.maplibre.navigation.core.utils.Constants.PRECISION_6;
 import static org.maplibre.android.style.layers.Property.NONE;
 import static org.maplibre.android.style.layers.Property.VISIBLE;
 import static org.maplibre.android.style.layers.PropertyFactory.visibility;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.PRIMARY_ROUTE_PROPERTY_KEY;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_BLEND_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_DESTINATION_VALUE;
@@ -73,6 +73,8 @@ class MapRouteLine {
 
   private final GeoJsonSource wayPointSource;
   private final GeoJsonSource routeLineSource;
+  // Fading start of the vanishing primary route, line gradients need line metrics
+  private GeoJsonSource routeFadeSource;
   private int primaryRouteIndex;
   private boolean isVisible = true;
   private boolean alternativesVisible = true;
@@ -88,7 +90,12 @@ class MapRouteLine {
   // Route collections last drawn with the current primary route flags, the base for trimming
   private List<FeatureCollection> drawnRouteCollections = new ArrayList<>();
   private RouteLineTrimmer routeLineTrimmer;
-  private LineString primaryRouteGeometry;
+  // Primary route by distance, for the vanishing route line
+  private RouteLinePainter primaryRoutePainter;
+  private final RouteVanishAnimator vanishAnimator = new RouteVanishAnimator(traveled -> {
+    drawVanishedRoute(traveled);
+    return kotlin.Unit.INSTANCE;
+  });
 
   MapRouteLine(Context context,
                Style style,
@@ -173,6 +180,11 @@ class MapRouteLine {
     routeLineSource = addOrReuseSource(style, ROUTE_SOURCE_ID,
       sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions),
       drawnRouteFeatureCollection);
+
+    FeatureCollection noFade = FeatureCollection.fromFeatures(new Feature[]{});
+    routeFadeSource = addOrReuseSource(style, ROUTE_FADE_SOURCE_ID,
+      sourceProvider.build(ROUTE_FADE_SOURCE_ID, noFade, new GeoJsonOptions().withMaxZoom(16).withLineMetrics(true)),
+      noFade);
 
     typedArray.recycle();
     belowLayer = findRouteBelowLayerId(belowLayer, style);
@@ -265,60 +277,69 @@ class MapRouteLine {
   }
 
   /**
-   * Removes the traveled part of the primary route, the line starts at the given location
-   * projected onto the route. Does nothing while the location is far from the route.
+   * Removes the traveled part of the primary route, the line fades in after the given location
+   * projected onto the route. The vanishing point moves smoothly to the location. Does nothing
+   * while the location is far from the route.
    */
   void vanishTraveledRoute(Point location) {
-    if (drawnRouteCollections.isEmpty() || primaryRouteIndex >= drawnRouteCollections.size()) {
+    if (drawnRouteCollections.isEmpty() || primaryRouteIndex >= drawnRouteCollections.size()
+      || primaryRouteIndex >= directionsRoutes.size()) {
       return;
     }
-    if (routeLineTrimmer == null) {
-      DirectionsRoute primaryRoute = directionsRoutes.get(primaryRouteIndex);
-      primaryRouteGeometry = LineString.fromPolyline(primaryRoute.getGeometry(), PRECISION_6);
-      routeLineTrimmer = new RouteLineTrimmer(primaryRouteGeometry.coordinates());
+    if (routeLineTrimmer == null || primaryRoutePainter == null) {
+      primaryRoutePainter = RouteLinePainter.create(directionsRoutes.get(primaryRouteIndex));
+      routeLineTrimmer = new RouteLineTrimmer(primaryRoutePainter.getGeometry().getCoordinates());
+      vanishAnimator.reset();
     }
-    RouteLineTrimmer.Result result = routeLineTrimmer.trim(location);
-    if (result == null) {
+    RouteLineTrimmer.Located located = routeLineTrimmer.locate(location);
+    if (located == null) {
       return;
     }
+    double traveled = primaryRoutePainter.getGeometry().distanceAt(located.getSegmentIndex(), located.getPoint());
+    vanishAnimator.animateTo(traveled);
+  }
 
-    LineString remainingLine = LineString.fromLngLats(result.getRemaining());
-    int fullRouteSize = primaryRouteGeometry.coordinates().size();
+  private void drawVanishedRoute(double traveled) {
+    if (primaryRoutePainter == null || primaryRouteIndex >= drawnRouteCollections.size()) {
+      return;
+    }
     List<Feature> routeFeatures = new ArrayList<>();
     for (int i = drawnRouteCollections.size() - 1; i >= 0; i--) {
-      List<Feature> features = drawnRouteCollections.get(i).features();
-      if (i != primaryRouteIndex || features == null) {
-        if (features != null) {
-          routeFeatures.addAll(features);
-        }
+      if (i == primaryRouteIndex) {
+        routeFeatures.addAll(primaryRoutePainter.features(traveled, true, true));
         continue;
       }
-      Point projectedLocation = result.getRemaining().get(0);
-      for (Feature feature : features) {
-        if (feature.hasProperty(CongestionSegments.START_SEGMENT_KEY)) {
-          Feature remaining = CongestionSegments.trim(feature, result.getSegmentIndex(), projectedLocation);
-          if (remaining != null) {
-            routeFeatures.add(remaining);
-          }
-        } else if (feature.geometry() instanceof LineString
-          && ((LineString) feature.geometry()).coordinates().size() == fullRouteSize) {
-          routeFeatures.add(Feature.fromGeometry(remainingLine, feature.properties()));
-        } else {
-          routeFeatures.add(feature);
-        }
+      List<Feature> features = drawnRouteCollections.get(i).features();
+      if (features != null) {
+        routeFeatures.addAll(features);
       }
     }
     routeLineSource.setGeoJson(FeatureCollection.fromFeatures(routeFeatures));
+    Feature fade = primaryRoutePainter.fadeFeature(traveled);
+    setFadeSource(fade == null ? new Feature[]{} : new Feature[]{fade});
+  }
+
+  private void setFadeSource(Feature[] features) {
+    if (routeFadeSource != null) {
+      routeFadeSource.setGeoJson(FeatureCollection.fromFeatures(features));
+    }
   }
 
   /**
    * Shows the complete route again after {@link #vanishTraveledRoute(Point)}.
    */
   void restoreTraveledRoute() {
-    routeLineTrimmer = null;
+    resetVanishing();
     if (!drawnRouteCollections.isEmpty()) {
       drawRoutes(drawnRouteCollections);
     }
+  }
+
+  private void resetVanishing() {
+    vanishAnimator.reset();
+    setFadeSource(new Feature[]{});
+    routeLineTrimmer = null;
+    primaryRoutePainter = null;
   }
 
   private void drawRoutes(List<FeatureCollection> routeFeatureCollections) {
@@ -338,8 +359,7 @@ class MapRouteLine {
 
   private void clearRouteListData() {
     drawnRouteCollections = new ArrayList<>();
-    routeLineTrimmer = null;
-    primaryRouteGeometry = null;
+    resetVanishing();
     if (!directionsRoutes.isEmpty()) {
       directionsRoutes.clear();
     }
@@ -424,7 +444,7 @@ class MapRouteLine {
 
   private void updateRoutesFor(int newPrimaryIndex) {
     if (this.primaryRouteIndex != newPrimaryIndex) {
-      routeLineTrimmer = null;
+      resetVanishing();
     }
     this.primaryRouteIndex = newPrimaryIndex;
     if (newPrimaryIndex < 0 || newPrimaryIndex > routeFeatureCollections.size() - 1) {
@@ -511,22 +531,40 @@ class MapRouteLine {
     );
     MapUtils.addLayerToMap(style, routeLayer, belowLayer);
     routeLayerIds.add(routeLayer.getId());
+
+    LineLayer blendLayer = layerProvider.initializeRouteBlendLayer(
+      style, routeLayer, routeDefaultColor, routeModerateColor, routeSevereColor,
+      alternativeRouteDefaultColor, alternativeRouteModerateColor, alternativeRouteSevereColor);
+    MapUtils.addLayerToMap(style, blendLayer, belowLayer);
+    routeLayerIds.add(blendLayer.getId());
+
+    LineLayer fadeShieldLayer = layerProvider.initializeRouteFadeShieldLayer(style, routeShieldLayer, routeShieldColor);
+    MapUtils.addLayerToMap(style, fadeShieldLayer, belowLayer);
+    routeLayerIds.add(fadeShieldLayer.getId());
+
+    int[] levelColors = {routeDefaultColor, routeModerateColor, routeSevereColor};
+    for (int i = 0; i < RouteLinePainter.LEVELS.size(); i++) {
+      LineLayer fadeLayer = layerProvider.initializeRouteFadeLayer(
+        style, routeLayer, RouteLinePainter.LEVELS.get(i), levelColors[i]);
+      MapUtils.addLayerToMap(style, fadeLayer, belowLayer);
+      routeLayerIds.add(fadeLayer.getId());
+    }
   }
 
   private void updateAlternativeVisibilityTo(boolean isAlternativeVisible) {
     this.alternativesVisible = isAlternativeVisible;
     if (style != null && style.isFullyLoaded()) {
       for (String layerId : routeLayerIds) {
-        if (layerId.equals(ROUTE_LAYER_ID) || layerId.equals(ROUTE_SHIELD_LAYER_ID)) {
-          Layer layer = style.getLayer(layerId);
-          if (layer != null) {
-            LineLayer route = (LineLayer) layer;
-            if (isAlternativeVisible) {
-              route.setFilter(literal(true));
-            } else {
-              route.setFilter(Expression.eq(Expression.get(PRIMARY_ROUTE_PROPERTY_KEY), true));
-            }
-          }
+        Layer layer = style.getLayer(layerId);
+        if (!(layer instanceof LineLayer)) {
+          continue;
+        }
+        LineLayer route = (LineLayer) layer;
+        if (layerId.equals(ROUTE_SHIELD_LAYER_ID)) {
+          route.setFilter(isAlternativeVisible ? Expression.literal(true)
+            : Expression.eq(Expression.get(PRIMARY_ROUTE_PROPERTY_KEY), true));
+        } else if (layerId.equals(ROUTE_LAYER_ID) || layerId.equals(ROUTE_BLEND_LAYER_ID)) {
+          route.setFilter(MapRouteLayerProvider.blendFilter(layerId.equals(ROUTE_BLEND_LAYER_ID), isAlternativeVisible));
         }
       }
     }

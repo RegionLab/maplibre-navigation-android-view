@@ -5,11 +5,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.location.LocationComponentConstants
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.plugins.annotation.SymbolOptions
 import org.maplibre.android.style.layers.Property.ICON_ANCHOR_CENTER
+import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
 import org.maplibre.geojson.Point
 import org.maplibre.navigation.android.example.databinding.ActivityNavigationUiBinding
 import org.maplibre.navigation.android.navigation.ui.v5.NavigationRequest
@@ -38,6 +40,7 @@ class NavigationUIActivity : ComponentActivity() {
     private val navigationListener = object : NavigationViewListener {
         override fun onNavigationStarted(route: DirectionsRoute) {
             binding.startRouteButton.setText(R.string.stop_navigation)
+            showVanishingRouteBelowPuck()
         }
 
         override fun onNavigationStopped() {
@@ -150,6 +153,20 @@ class NavigationUIActivity : ComponentActivity() {
         )
     }
 
+    /**
+     * Semi-transparent user location puck, to see the route vanish below it. The location layers
+     * exist once navigation started.
+     */
+    private fun showVanishingRouteBelowPuck() {
+        val style = mapLibreMap?.style ?: return
+        listOf(
+            LocationComponentConstants.FOREGROUND_LAYER,
+            LocationComponentConstants.BACKGROUND_LAYER,
+            LocationComponentConstants.SHADOW_LAYER,
+            LocationComponentConstants.BEARING_LAYER,
+        ).forEach { layerId -> style.getLayer(layerId)?.setProperties(iconOpacity(PUCK_OPACITY)) }
+    }
+
     private fun startNavigation() {
         val request = NavigationRequest(
             origin = Point.fromLngLat(76.93390611559153, 43.23088776754339),
@@ -171,6 +188,7 @@ class NavigationUIActivity : ComponentActivity() {
 
     private companion object {
         const val DRIVER_MARKER_ICON_ID = "DRIVER_MARKER_ICON_ID"
+        const val PUCK_OPACITY = 0.4f
         val NAVIGATION_LANGUAGE: Locale = Locale.forLanguageTag("ru")
     }
 }

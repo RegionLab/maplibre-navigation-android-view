@@ -42,6 +42,10 @@ MapLibre welcomes participation and contributions from everyone.
 - Traffic on the route line: Mapbox `driving-traffic` requests `congestion`, equal levels are merged
   into one line, fixed traffic drawn at the wrong place on routes with stops, works with the
   vanishing route. The route log shows the traffic levels.
+- Traffic colors blend into each other and into the route color over 40 m instead of changing
+  abruptly.
+- The vanishing route follows the user location smoothly (about 30 fps) instead of jumping on every
+  location update, and fades in over 25 m behind the vanishing point.
 - Kazakh voice and banner instructions for Mapbox and Valhalla, which answer `kk` in English: built
   from the maneuvers of the route.
 
