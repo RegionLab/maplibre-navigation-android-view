@@ -3,11 +3,9 @@ package org.maplibre.navigation.android.navigation.ui.v5.route;
 import android.os.Handler;
 
 import org.maplibre.navigation.core.models.DirectionsRoute;
-import org.maplibre.navigation.core.models.RouteLeg;
 import org.maplibre.geojson.Feature;
 import org.maplibre.geojson.FeatureCollection;
 import org.maplibre.geojson.LineString;
-import org.maplibre.geojson.Point;
 import org.maplibre.navigation.core.utils.Constants;
 
 import java.lang.ref.WeakReference;
@@ -77,37 +75,7 @@ class FeatureProcessingTask extends Thread {
     features.add(routeFeature);
     routeLineStrings.put(routeGeometry, route);
 
-    List<Feature> congestionFeatures = buildCongestionFeaturesFromRoute(route, routeGeometry, isPrimary);
-    features.addAll(congestionFeatures);
+    features.addAll(CongestionSegments.build(route, routeGeometry.coordinates(), isPrimary));
     return FeatureCollection.fromFeatures(features);
-  }
-
-  private List<Feature> buildCongestionFeaturesFromRoute(DirectionsRoute route, LineString lineString,
-                                                         boolean isPrimary) {
-    final List<Feature> features = new ArrayList<>();
-    for (RouteLeg leg : route.getLegs()) {
-      if (leg.getAnnotation() != null && leg.getAnnotation().getCongestion() != null) {
-        for (int i = 0; i < leg.getAnnotation().getCongestion().size(); i++) {
-          // See https://github.com/mapbox/mapbox-navigation-android/issues/353
-          if (leg.getAnnotation().getCongestion().size() + 1 <= lineString.coordinates().size()) {
-
-            List<Point> points = new ArrayList<>();
-            points.add(lineString.coordinates().get(i));
-            points.add(lineString.coordinates().get(i + 1));
-
-            LineString congestionLineString = LineString.fromLngLats(points);
-            Feature feature = Feature.fromGeometry(congestionLineString);
-            String congestionValue = leg.getAnnotation().getCongestion().get(i);
-            feature.addStringProperty(RouteConstants.CONGESTION_KEY, congestionValue);
-            feature.addBooleanProperty(PRIMARY_ROUTE_PROPERTY_KEY, isPrimary);
-            features.add(feature);
-          }
-        }
-      } else {
-        Feature feature = Feature.fromGeometry(lineString);
-        features.add(feature);
-      }
-    }
-    return features;
   }
 }

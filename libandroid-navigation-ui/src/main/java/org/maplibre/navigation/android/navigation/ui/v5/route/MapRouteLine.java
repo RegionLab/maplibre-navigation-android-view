@@ -293,14 +293,17 @@ class MapRouteLine {
         }
         continue;
       }
-      int congestionSegment = 0;
+      Point projectedLocation = result.getRemaining().get(0);
       for (Feature feature : features) {
-        boolean isFullRoute = feature.geometry() instanceof LineString
-          && ((LineString) feature.geometry()).coordinates().size() == fullRouteSize;
-        if (isFullRoute) {
+        if (feature.hasProperty(CongestionSegments.START_SEGMENT_KEY)) {
+          Feature remaining = CongestionSegments.trim(feature, result.getSegmentIndex(), projectedLocation);
+          if (remaining != null) {
+            routeFeatures.add(remaining);
+          }
+        } else if (feature.geometry() instanceof LineString
+          && ((LineString) feature.geometry()).coordinates().size() == fullRouteSize) {
           routeFeatures.add(Feature.fromGeometry(remainingLine, feature.properties()));
-        } else if (congestionSegment++ >= result.getSegmentIndex()) {
-          // Congestion segments follow the route coordinates, drop the traveled ones
+        } else {
           routeFeatures.add(feature);
         }
       }

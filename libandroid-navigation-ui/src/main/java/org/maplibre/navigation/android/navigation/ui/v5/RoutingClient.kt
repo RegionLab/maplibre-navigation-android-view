@@ -179,7 +179,7 @@ class RoutingClient @JvmOverloads constructor(
 }
 
 /**
- * One log line per route: distance and how much of it has speed limit data.
+ * One log line per route: distance and how much of it has speed limit and traffic data.
  */
 private fun org.maplibre.navigation.core.models.DirectionsRoute.summary(index: Int): String {
     val maxSpeeds = legs.flatMap { it.annotation?.maxSpeed.orEmpty() }
@@ -192,7 +192,14 @@ private fun org.maplibre.navigation.core.models.DirectionsRoute.summary(index: I
                 "${maxSpeeds.size - known - none} unknown"
         }
     }
-    return "Route ${index + 1}: ${"%.1f".format(java.util.Locale.ROOT, distance / 1000)} km, ${legs.size} leg(s), $speedLimits"
+    val congestion = legs.flatMap { it.annotation?.congestion.orEmpty() }
+    val traffic = when {
+        congestion.isEmpty() -> "no congestion annotations"
+        else -> "congestion for ${congestion.size} segments: " +
+            congestion.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
+                .joinToString(", ") { (level, count) -> "$count $level" }
+    }
+    return "Route ${index + 1}: ${"%.1f".format(java.util.Locale.ROOT, distance / 1000)} km, ${legs.size} leg(s), $speedLimits, $traffic"
 }
 
 /**

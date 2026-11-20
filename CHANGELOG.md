@@ -39,6 +39,12 @@ MapLibre welcomes participation and contributions from everyone.
 
 ### Routing
 
+- Traffic on the route line: Mapbox `driving-traffic` requests `congestion`, equal levels are merged
+  into one line, fixed traffic drawn at the wrong place on routes with stops, works with the
+  vanishing route. The route log shows the traffic levels.
+- Kazakh voice and banner instructions for Mapbox and Valhalla, which answer `kk` in English: built
+  from the maneuvers of the route.
+
 - **BREAKING:** Route requests no longer use the Mapbox SDK services (and Retrofit). `NavigationRoute`
   is replaced by `RoutingClient` + `RoutingService` + `RouteRequest`, responses are parsed once and
   off the main thread instead of being converted Mapbox model → JSON → MapLibre model on the main thread.

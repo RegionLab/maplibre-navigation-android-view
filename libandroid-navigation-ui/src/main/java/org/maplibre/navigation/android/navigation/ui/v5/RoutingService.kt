@@ -20,6 +20,7 @@ import org.maplibre.navigation.core.models.DirectionsRoute
 import org.maplibre.navigation.core.models.RouteOptions
 import org.maplibre.navigation.core.models.UnitType
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.navigation.android.navigation.ui.v5.voice.KazakhInstructionGenerator
 import timber.log.Timber
 
 /**
@@ -87,6 +88,17 @@ abstract class RoutingService {
 
     /** Stored in [RouteOptions.user], identifies the engine in [fromRouteOptions]. */
     protected abstract val user: String
+
+    /**
+     * For engines without Kazakh: Kazakh instructions built from the maneuvers of the routes, if
+     * [request] is in Kazakh.
+     */
+    protected fun withKazakhInstructions(response: DirectionsResponse, request: RouteRequest): DirectionsResponse {
+        if (request.language.language != LANGUAGE_KAZAKH) {
+            return response
+        }
+        return response.copy(routes = response.routes.map(KazakhInstructionGenerator::apply))
+    }
 
     /** Profile used when [RouteRequest.profile] is null. */
     protected abstract val defaultProfile: String
@@ -157,7 +169,27 @@ abstract class RoutingService {
     class Mapbox @JvmOverloads constructor(
         baseUrl: String = "https://api.mapbox.com",
         accessToken: String,
-    ) : MapboxCompatible(baseUrl, accessToken, USER_MAPBOX, PROFILE_DRIVING_TRAFFIC)
+    ) : MapboxCompatible(baseUrl, accessToken, USER_MAPBOX, PROFILE_DRIVING_TRAFFIC) {
+
+        override fun createUrl(request: RouteRequest): HttpUrl {
+            val profile = request.profile ?: defaultProfile
+            // Live traffic is available with driving-traffic only, it colors the route line
+            val withTraffic = profile == PROFILE_DRIVING_TRAFFIC &&
+                RouteRequest.ANNOTATION_CONGESTION !in request.annotations
+            return super.createUrl(
+                if (withTraffic) request.copy(annotations = request.annotations + RouteRequest.ANNOTATION_CONGESTION) else request
+            )
+        }
+
+        override fun enrichResponse(
+            response: DirectionsResponse,
+            request: RouteRequest,
+            httpClient: OkHttpClient,
+        ): DirectionsResponse {
+            // Mapbox has no Kazakh and answers in English
+            return withKazakhInstructions(response, request)
+        }
+    }
 
     /**
      * GraphHopper [navigate endpoint](https://docs.graphhopper.com/#tag/Navigation-API), e.g.
@@ -234,16 +266,17 @@ abstract class RoutingService {
             request: RouteRequest,
             httpClient: OkHttpClient,
         ): DirectionsResponse {
+            // Valhalla has no Kazakh and answers in English
             if (!speedLimits) {
-                return response
+                return withKazakhInstructions(response, request)
             }
-            return response.copy(routes = response.routes.map { route ->
+            return withKazakhInstructions(response.copy(routes = response.routes.map { route ->
                 runCatching { loadSpeedLimits(route, request, httpClient) }
                     .getOrElse { error ->
                         Timber.w(error, "Loading speed limits from Valhalla failed")
                         route
                     }
-            })
+            }), request)
         }
 
         private fun loadSpeedLimits(
@@ -319,7 +352,8 @@ abstract class RoutingService {
         const val APPROACH_CURB = "curb"
 
         private const val MAPBOX_TOKEN_PREFIX = "pk."
-        private val GRAPHHOPPER_LANGUAGES = mapOf("kk" to "kz")
+        private const val LANGUAGE_KAZAKH = "kk"
+        private val GRAPHHOPPER_LANGUAGES = mapOf(LANGUAGE_KAZAKH to "kz")
         private const val GEOMETRY_POLYLINE6 = "polyline6"
         private const val OVERVIEW_FULL = "full"
         private const val BEARING_TOLERANCE = 90

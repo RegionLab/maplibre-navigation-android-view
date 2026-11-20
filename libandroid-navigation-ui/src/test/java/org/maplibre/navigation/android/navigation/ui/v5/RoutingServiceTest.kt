@@ -49,7 +49,17 @@ class RoutingServiceTest {
         assertEquals("45,90;;", url.queryParameter("bearings"))
         assertEquals(";curb;", url.queryParameter("approaches"))
         assertEquals("Start;Stop;End", url.queryParameter("waypoint_names"))
-        assertEquals("maxspeed,speed,distance,duration", url.queryParameter("annotations"))
+        // Live traffic for the route line, driving-traffic is the default profile
+        assertEquals("maxspeed,speed,distance,duration,congestion", url.queryParameter("annotations"))
+    }
+
+    @Test
+    fun mapbox_requestsTrafficOnlyWithTrafficProfile() {
+        val service = RoutingService.Mapbox(accessToken = "pk.token")
+
+        val driving = service.createHttpRequest(request.copy(profile = RoutingService.PROFILE_DRIVING)).url
+
+        assertEquals("maxspeed,speed,distance,duration", driving.queryParameter("annotations"))
     }
 
     @Test
