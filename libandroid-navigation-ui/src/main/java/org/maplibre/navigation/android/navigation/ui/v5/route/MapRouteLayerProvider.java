@@ -156,6 +156,28 @@ class MapRouteLayerProvider {
     return routeLayer;
   }
 
+  /**
+   * Copy of [template] on another source, e.g. for the part of the route near the user location
+   * that is updated on every frame.
+   */
+  LineLayer copyLineLayer(Style style, LineLayer template, String layerId, String sourceId) {
+    LineLayer layer = style.getLayerAs(layerId);
+    if (layer != null) {
+      style.removeLayer(layer);
+    }
+    layer = new LineLayer(layerId, sourceId).withProperties(
+      lineCap(template.getLineCap().getValue()),
+      lineJoin(template.getLineJoin().getValue()),
+      lineWidth(template.getLineWidth().getExpression()),
+      lineColor(template.getLineColor().getExpression())
+    );
+    Expression filter = template.getFilter();
+    if (filter != null) {
+      layer.setFilter(filter);
+    }
+    return layer;
+  }
+
   /** Color steps between traffic levels, with butt caps, see {@link RouteLinePainter}. */
   LineLayer initializeRouteBlendLayer(Style style, LineLayer routeLayer, int routeDefaultColor, int routeModerateColor,
                                       int routeSevereColor, int alternativeRouteDefaultColor,

@@ -44,8 +44,9 @@ MapLibre welcomes participation and contributions from everyone.
   vanishing route. The route log shows the traffic levels.
 - Traffic colors blend into each other and into the route color over 40 m instead of changing
   abruptly.
-- The vanishing route follows the user location smoothly (about 30 fps) instead of jumping on every
-  location update, and fades in over 25 m behind the vanishing point.
+- The vanishing route follows the user location smoothly (15 fps) instead of jumping on every
+  location update, and fades in over 25 m behind the vanishing point. Only the part of the route
+  near the user location is updated on every frame, so the cost doesn't depend on the route length.
 - Kazakh voice and banner instructions for Mapbox and Valhalla, which answer `kk` in English: built
   from the maneuvers of the route.
 

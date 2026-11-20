@@ -8,6 +8,8 @@ class RouteConstants {
   static final String ROUTE_SOURCE_ID = "mapbox-navigation-route-source";
   static final String ROUTE_LAYER_ID = "mapbox-navigation-route-layer";
   static final String ROUTE_SHIELD_LAYER_ID = "mapbox-navigation-route-shield-layer";
+  static final String ROUTE_NEAR_SOURCE_ID = "mapbox-navigation-route-near-source";
+  static final String ROUTE_NEAR_LAYER_SUFFIX = "-near";
   static final String ROUTE_BLEND_LAYER_ID = "mapbox-navigation-route-blend-layer";
   static final String ROUTE_FADE_SOURCE_ID = "mapbox-navigation-route-fade-source";
   static final String ROUTE_FADE_LAYER_ID = "mapbox-navigation-route-fade-layer";

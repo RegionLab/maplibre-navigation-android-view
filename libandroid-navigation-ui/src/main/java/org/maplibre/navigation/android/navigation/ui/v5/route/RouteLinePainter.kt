@@ -45,19 +45,22 @@ internal class RouteLinePainter(
     /**
      * @param traveled distance from the start of the route, the line starts here
      * @param fade line gets opaque over [fadeMeters] after [traveled] instead of starting opaque
+     * @param until distance from the start of the route, the line ends here
      */
-    fun features(traveled: Double, isPrimary: Boolean, fade: Boolean): List<Feature> {
+    @JvmOverloads
+    fun features(traveled: Double, isPrimary: Boolean, fade: Boolean, until: Double = geometry.length): List<Feature> {
         val length = geometry.length
         val start = traveled.coerceIn(0.0, length)
-        val fadeEnd = if (fade) (start + fadeMeters).coerceAtMost(length) else start
+        val end = until.coerceIn(start, length)
+        val fadeEnd = if (fade) (start + fadeMeters).coerceAtMost(end) else start
         val features = ArrayList<Feature>()
 
-        geometry.slice(fadeEnd, length).takeIf { it.isNotEmpty() }?.let { points ->
+        geometry.slice(fadeEnd, end).takeIf { it.isNotEmpty() }?.let { points ->
             features += line(points, isPrimary)
         }
         for (piece in pieces) {
-            if (piece.end <= fadeEnd) continue
-            geometry.slice(maxOf(piece.start, fadeEnd), piece.end).takeIf { it.isNotEmpty() }?.let { points ->
+            if (piece.end <= fadeEnd || piece.start >= end) continue
+            geometry.slice(maxOf(piece.start, fadeEnd), minOf(piece.end, end)).takeIf { it.isNotEmpty() }?.let { points ->
                 features += line(points, isPrimary).apply {
                     addStringProperty(PAINT_KEY, piece.paint)
                     if (piece.blend) addBooleanProperty(BLEND_KEY, true)

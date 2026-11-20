@@ -146,6 +146,12 @@ public class MapRouteLineTest extends BaseTest {
     when(mapRouteLayerProvider.initializeRouteShieldLayer(
       eq(style), anyFloat(), anyFloat(), anyInt(), anyInt()
     )).thenReturn(routeShieldLayer);
+    when(mapRouteLayerProvider.copyLineLayer(eq(style), any(LineLayer.class), anyString(), anyString()))
+      .thenAnswer(invocation -> {
+        LineLayer copy = mock(LineLayer.class);
+        when(copy.getId()).thenReturn((String) invocation.getArgument(2));
+        return copy;
+      });
     LineLayer routeBlendLayer = mock(LineLayer.class);
     when(routeBlendLayer.getId()).thenReturn(ROUTE_BLEND_LAYER_ID);
     when(mapRouteLayerProvider.initializeRouteBlendLayer(eq(style), any(LineLayer.class),
@@ -376,6 +382,12 @@ public class MapRouteLineTest extends BaseTest {
     when(mapRouteLayerProvider.initializeRouteShieldLayer(
       eq(style), anyFloat(), anyFloat(), anyInt(), anyInt()
     )).thenReturn(routeShieldLayer);
+    when(mapRouteLayerProvider.copyLineLayer(eq(style), any(LineLayer.class), anyString(), anyString()))
+      .thenAnswer(invocation -> {
+        LineLayer copy = mock(LineLayer.class);
+        when(copy.getId()).thenReturn((String) invocation.getArgument(2));
+        return copy;
+      });
     LineLayer routeBlendLayer = mock(LineLayer.class);
     when(routeBlendLayer.getId()).thenReturn(ROUTE_BLEND_LAYER_ID);
     when(mapRouteLayerProvider.initializeRouteBlendLayer(eq(style), any(LineLayer.class),

@@ -107,6 +107,19 @@ class RouteLinePainterTest {
     }
 
     @Test
+    fun until_lineAndTrafficEndThere() {
+        // Near part of the route: from the traveled distance to 400 m, the rest is drawn separately
+        val levels = List(3) { "low" } + List(4) { "moderate" } + List(3) { "low" }
+        val features = painter(levels).features(100.0, isPrimary = true, fade = false, until = 400.0)
+
+        assertEquals(300.0, features.first().length(), 0.01)
+        val moderate = features.single { it.paint() == RouteLinePainter.LEVEL_MODERATE }
+        assertEquals(320.0, moderate.startDistance(), 0.01)
+        assertEquals(80.0, moderate.length(), 0.01)
+        assertTrue(features.none { it.paint()?.startsWith("moderate>") == true })
+    }
+
+    @Test
     fun fade_lineStartsAfterFadeFeature() {
         val painter = painter(null)
 

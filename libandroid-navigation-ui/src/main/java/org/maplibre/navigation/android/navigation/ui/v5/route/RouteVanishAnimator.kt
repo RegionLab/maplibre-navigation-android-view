@@ -9,7 +9,8 @@ import android.view.animation.LinearInterpolator
  * once per update. The point follows the user location puck, which is animated between location
  * updates as well: each move takes as long as the time since the previous location update.
  *
- * @param onFrame draws the route from the given traveled distance, at most every [FRAME_MS]
+ * @param onFrame draws the route from the given traveled distance, at most every [FRAME_MS] and
+ * after moving at least [MIN_FRAME_METERS]
  */
 internal class RouteVanishAnimator @JvmOverloads constructor(
     private val onFrame: (traveled: Double) -> Unit,
@@ -24,6 +25,7 @@ internal class RouteVanishAnimator @JvmOverloads constructor(
     /** Time of the previous [animateTo], null before the first one. */
     private var lastTargetTime: Long? = null
     private var lastFrameTime = 0L
+    private var lastDrawn = 0.0
 
     /**
      * Moves the vanishing point to [target] meters from the route start. Moving back by GPS noise
@@ -51,7 +53,8 @@ internal class RouteVanishAnimator @JvmOverloads constructor(
                 if (fraction <= 0.0) return@addUpdateListener
                 val distance = from + (target - from) * fraction
                 val frameTime = clock()
-                if (fraction >= 1.0 || frameTime - lastFrameTime >= FRAME_MS) {
+                val moved = distance - lastDrawn >= MIN_FRAME_METERS
+                if (fraction >= 1.0 || (moved && frameTime - lastFrameTime >= FRAME_MS)) {
                     draw(distance, frameTime)
                 } else {
                     traveled = distance
@@ -68,17 +71,22 @@ internal class RouteVanishAnimator @JvmOverloads constructor(
         traveled = 0.0
         lastTargetTime = null
         lastFrameTime = 0L
+        lastDrawn = 0.0
     }
 
     private fun draw(distance: Double, time: Long) {
         traveled = distance
+        lastDrawn = distance
         lastFrameTime = time
         onFrame(distance)
     }
 
     companion object {
-        /** About 30 fps: each frame sends the remaining route to the map. */
-        const val FRAME_MS = 33L
+        /** About 15 fps: about 1 m per frame at 50 km/h. */
+        const val FRAME_MS = 66L
+
+        /** Frames moving less, e.g. in a traffic jam, aren't drawn. */
+        const val MIN_FRAME_METERS = 0.5
         const val MIN_DURATION_MS = 200L
         const val MAX_DURATION_MS = 1500L
         const val MAX_ANIMATED_METERS = 150.0

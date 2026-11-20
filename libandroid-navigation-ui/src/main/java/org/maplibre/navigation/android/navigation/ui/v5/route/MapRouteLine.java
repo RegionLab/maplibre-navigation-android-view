@@ -36,6 +36,8 @@ import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConsta
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_BLEND_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SOURCE_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_NEAR_LAYER_SUFFIX;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_NEAR_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_DESTINATION_VALUE;
@@ -75,6 +77,13 @@ class MapRouteLine {
   private final GeoJsonSource routeLineSource;
   // Fading start of the vanishing primary route, line gradients need line metrics
   private GeoJsonSource routeFadeSource;
+  // Part of the vanishing primary route near the user location, updated on every frame. The rest
+  // of the route is updated only every NEAR_ROUTE_STEP_METERS, on large routes re-tiling the whole
+  // route on every frame costs a lot of CPU.
+  private GeoJsonSource routeNearSource;
+  private double farRouteStart = Double.NaN;
+  private static final double NEAR_ROUTE_STEP_METERS = 200;
+  private static final double NEAR_ROUTE_MIN_METERS = 200;
   private int primaryRouteIndex;
   private boolean isVisible = true;
   private boolean alternativesVisible = true;
@@ -180,6 +189,11 @@ class MapRouteLine {
     routeLineSource = addOrReuseSource(style, ROUTE_SOURCE_ID,
       sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions),
       drawnRouteFeatureCollection);
+
+    FeatureCollection noNearRoute = FeatureCollection.fromFeatures(new Feature[]{});
+    routeNearSource = addOrReuseSource(style, ROUTE_NEAR_SOURCE_ID,
+      sourceProvider.build(ROUTE_NEAR_SOURCE_ID, noNearRoute, new GeoJsonOptions().withMaxZoom(16)),
+      noNearRoute);
 
     FeatureCollection noFade = FeatureCollection.fromFeatures(new Feature[]{});
     routeFadeSource = addOrReuseSource(style, ROUTE_FADE_SOURCE_ID,
@@ -303,20 +317,33 @@ class MapRouteLine {
     if (primaryRoutePainter == null || primaryRouteIndex >= drawnRouteCollections.size()) {
       return;
     }
-    List<Feature> routeFeatures = new ArrayList<>();
-    for (int i = drawnRouteCollections.size() - 1; i >= 0; i--) {
-      if (i == primaryRouteIndex) {
-        routeFeatures.addAll(primaryRoutePainter.features(traveled, true, true));
-        continue;
+    // The near part ends 200-400 m ahead, the far part changes only when that end moves
+    double nearRouteEnd = Math.floor(traveled / NEAR_ROUTE_STEP_METERS) * NEAR_ROUTE_STEP_METERS
+      + NEAR_ROUTE_STEP_METERS + NEAR_ROUTE_MIN_METERS;
+    if (nearRouteEnd != farRouteStart) {
+      farRouteStart = nearRouteEnd;
+      List<Feature> routeFeatures = new ArrayList<>();
+      for (int i = drawnRouteCollections.size() - 1; i >= 0; i--) {
+        if (i == primaryRouteIndex) {
+          routeFeatures.addAll(primaryRoutePainter.features(nearRouteEnd, true, false));
+          continue;
+        }
+        List<Feature> features = drawnRouteCollections.get(i).features();
+        if (features != null) {
+          routeFeatures.addAll(features);
+        }
       }
-      List<Feature> features = drawnRouteCollections.get(i).features();
-      if (features != null) {
-        routeFeatures.addAll(features);
-      }
+      routeLineSource.setGeoJson(FeatureCollection.fromFeatures(routeFeatures));
     }
-    routeLineSource.setGeoJson(FeatureCollection.fromFeatures(routeFeatures));
+    setNearRouteSource(primaryRoutePainter.features(traveled, true, true, nearRouteEnd));
     Feature fade = primaryRoutePainter.fadeFeature(traveled);
     setFadeSource(fade == null ? new Feature[]{} : new Feature[]{fade});
+  }
+
+  private void setNearRouteSource(List<Feature> features) {
+    if (routeNearSource != null) {
+      routeNearSource.setGeoJson(FeatureCollection.fromFeatures(features));
+    }
   }
 
   private void setFadeSource(Feature[] features) {
@@ -338,6 +365,8 @@ class MapRouteLine {
   private void resetVanishing() {
     vanishAnimator.reset();
     setFadeSource(new Feature[]{});
+    setNearRouteSource(new ArrayList<Feature>());
+    farRouteStart = Double.NaN;
     routeLineTrimmer = null;
     primaryRoutePainter = null;
   }
@@ -520,23 +549,25 @@ class MapRouteLine {
       style, routeScale, alternativeRouteScale,
       routeShieldColor, alternativeRouteShieldColor
     );
-    MapUtils.addLayerToMap(style, routeShieldLayer, belowLayer);
-    routeLayerIds.add(routeShieldLayer.getId());
-
     LineLayer routeLayer = layerProvider.initializeRouteLayer(
       style, roundedLineCap, routeScale, alternativeRouteScale,
       routeDefaultColor, routeModerateColor, routeSevereColor,
       alternativeRouteDefaultColor, alternativeRouteModerateColor,
       alternativeRouteSevereColor
     );
-    MapUtils.addLayerToMap(style, routeLayer, belowLayer);
-    routeLayerIds.add(routeLayer.getId());
-
     LineLayer blendLayer = layerProvider.initializeRouteBlendLayer(
       style, routeLayer, routeDefaultColor, routeModerateColor, routeSevereColor,
       alternativeRouteDefaultColor, alternativeRouteModerateColor, alternativeRouteSevereColor);
-    MapUtils.addLayerToMap(style, blendLayer, belowLayer);
-    routeLayerIds.add(blendLayer.getId());
+
+    // Shields below both route parts, so the near part joins the far part without a seam
+    for (LineLayer layer : new LineLayer[]{routeShieldLayer, routeLayer, blendLayer}) {
+      MapUtils.addLayerToMap(style, layer, belowLayer);
+      routeLayerIds.add(layer.getId());
+      LineLayer nearLayer = layerProvider.copyLineLayer(
+        style, layer, layer.getId() + ROUTE_NEAR_LAYER_SUFFIX, ROUTE_NEAR_SOURCE_ID);
+      MapUtils.addLayerToMap(style, nearLayer, belowLayer);
+      routeLayerIds.add(nearLayer.getId());
+    }
 
     LineLayer fadeShieldLayer = layerProvider.initializeRouteFadeShieldLayer(style, routeShieldLayer, routeShieldColor);
     MapUtils.addLayerToMap(style, fadeShieldLayer, belowLayer);
