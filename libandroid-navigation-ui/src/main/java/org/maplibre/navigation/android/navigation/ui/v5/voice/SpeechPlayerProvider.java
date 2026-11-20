@@ -5,7 +5,6 @@ import android.media.AudioManager;
 import androidx.annotation.NonNull;
 
 import org.maplibre.navigation.core.models.DirectionsRoute;
-import org.maplibre.navigation.android.navigation.ui.v5.ConnectivityStatusProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +28,6 @@ public class SpeechPlayerProvider {
 
   private AndroidSpeechPlayer androidSpeechPlayer;
   private List<SpeechPlayer> speechPlayers = new ArrayList<>(2);
-  private ConnectivityStatusProvider connectivityStatus;
 
   /**
    * Constructed when creating an instance of {@link NavigationSpeechPlayer}.
@@ -41,14 +39,6 @@ public class SpeechPlayerProvider {
   public SpeechPlayerProvider(@NonNull Context context, String language,
                               boolean voiceLanguageSupported) {
     initialize(context, language, voiceLanguageSupported);
-  }
-
-  // Package private (no modifier) for testing purposes
-  SpeechPlayerProvider(@NonNull Context context, String language,
-                       boolean voiceLanguageSupported,
-                       ConnectivityStatusProvider connectivityStatus) {
-    this(context, language, voiceLanguageSupported);
-    this.connectivityStatus = connectivityStatus;
   }
 
   SpeechPlayer retrieveSpeechPlayer() {
@@ -83,7 +73,6 @@ public class SpeechPlayerProvider {
     SpeechAudioFocusManager audioFocusManager = new SpeechAudioFocusManager(provider);
     SpeechListener speechListener = new NavigationSpeechListener(this, audioFocusManager);
     initializeAndroidSpeechPlayer(context, language, speechListener);
-    connectivityStatus = new ConnectivityStatusProvider(context);
   }
 
   private AudioFocusDelegateProvider buildAudioFocusDelegateProvider(Context context) {
