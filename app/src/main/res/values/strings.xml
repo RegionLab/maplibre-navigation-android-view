@@ -70,5 +70,10 @@
     <string name="error_select_longer_route">Please select a longer route</string>
     <string name="error_valid_route_not_found">Valid route not found.</string>
     <string name="explanation_long_press_waypoint">Long press map to place waypoint</string>
-
+    <string name="start_navigation">Start navigation</string>
+    <string name="stop_navigation">Stop navigation</string>
+    <string name="arrived">You have arrived</string>
+    <string name="route_request_failed">Route request failed</string>
+    <string name="locate_me">Show my location</string>
+    <string name="voice_installed">Navigation voice installed, used from the next navigation</string>
 </resources>

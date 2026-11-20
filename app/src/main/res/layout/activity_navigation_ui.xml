@@ -24,7 +24,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:contentDescription="locate_me"
+        android:contentDescription="@string/locate_me"
         android:src="@drawable/ic_new_location"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -50,7 +50,7 @@
             android:id="@+id/simulateRouteSwitch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="simulate_route"
+            android:text="@string/simulate_route"
             android:textColor="@color/maplibre_navigation_route_upcoming_maneuver_arrow_color"
             app:switchPadding="4dp" />
 
@@ -59,7 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="Start route"
+            android:text="@string/start_navigation"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />

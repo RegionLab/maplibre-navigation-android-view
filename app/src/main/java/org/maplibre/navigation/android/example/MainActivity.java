@@ -44,16 +44,6 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
             MockNavigationActivity.class
         ));
         list.add(new SampleItem(
-            getString(R.string.title_valhalla_navigation),
-            getString(R.string.description_vallhalla_navigation),
-            ValhallaNavigationActivity.class
-        ));
-        list.add(new SampleItem(
-                getString(R.string.title_graphhopper_navigation),
-                getString(R.string.description_graphhopper_navigation),
-                GraphHopperNavigationActivity.class
-        ));
-        list.add(new SampleItem(
             getString(R.string.title_navigation_ui),
             getString(R.string.description_navigation_ui),
             NavigationUIActivity.class
@@ -71,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
         list.add(new SampleItem(
             getString(R.string.title_custom_foreground_notification),
             getString(R.string.description_custom_foreground_notification),
-            NavigationWithForegroundNotificationActivity.class
+            NavigationWithCustomForegroundNotificationActivity.class
         ));
         RecyclerView.Adapter adapter = new MainAdapter(list);
         recyclerView.setAdapter(adapter);
