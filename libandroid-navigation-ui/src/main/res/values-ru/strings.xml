@@ -6,23 +6,13 @@
     <!-- Button title for re-centering tracking -->
     <string name="re_center">По центру</string>
 
-    <!-- Indicates voice instructions are muted -->
-    <string name="muted">Не проговаривать</string>
 
-    <!-- Indicates voice instructions are unmuted -->
-    <string name="unmuted">Проговаривать</string>
 
     <!-- Shown in off-route scenarios to provide feedback -->
     <string name="report_problem">Сообщить о проблеме</string>
 
-    <!-- Test app dialog text -->
-    <string name="dropoff_dialog_text">Проложить маршрут к следующему пункту назначения?</string>
 
-    <!-- Test app dialog text start next route -->
-    <string name="dropoff_dialog_positive_text">Начать другой</string>
 
-    <!-- Test app dialog text cancel navigation -->
-    <string name="dropoff_dialog_negative_text">Отмена</string>
 
     <string name="kilometers">км</string>
     <string name="meters">м</string>
@@ -41,5 +31,9 @@
     <string name="hr">ч.</string>
     <!-- Minute -->
     <string name="min">мин.</string>
-
+    <string name="navigation_view_speed_limit_description">Ограничение скорости %1$s</string>
+    <string name="navigation_view_no_speed_limit_description">Без ограничения скорости</string>
+    <string name="navigation_view_speed_description">Текущая скорость %1$s</string>
+    <!-- Spoken when navigation continues along a new route after leaving the route -->
+    <string name="navigation_view_rerouted_announcement">Маршрут перестроен</string>
 </resources>

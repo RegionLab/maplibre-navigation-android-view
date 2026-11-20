@@ -375,6 +375,15 @@ public class NavigationMapLibreMap {
    * Will remove the drawn route displayed on the map.  Does nothing
    * if no route is drawn.
    */
+  /**
+   * Removes the traveled part of the route line while navigating.
+   *
+   * @param isEnabled true to remove the traveled part, false to show the complete route
+   */
+  public void updateVanishingRouteLine(boolean isEnabled) {
+    mapRoute.updateVanishingRouteLine(isEnabled);
+  }
+
   public void removeRoute() {
     mapRoute.removeRoute();
   }
@@ -438,6 +447,22 @@ public class NavigationMapLibreMap {
    */
   public void resetPadding() {
     mapPaddingAdjustor.resetPadding();
+  }
+
+  /**
+   * Sets the height covered at the bottom of the map, e.g. by a bottom sheet, so the location icon
+   * stays visible while the camera is tracking.
+   *
+   * @param bottomInset covered height in pixels
+   */
+  public void updateBottomInset(int bottomInset) {
+    if (mapPaddingAdjustor.retrieveBottomInset() == bottomInset) {
+      return;
+    }
+    mapPaddingAdjustor.updateBottomInset(bottomInset);
+    if (mapPaddingAdjustor.isUsingDefault() && mapCamera.isTrackingEnabled()) {
+      mapPaddingAdjustor.updatePaddingWithDefault();
+    }
   }
 
   /**

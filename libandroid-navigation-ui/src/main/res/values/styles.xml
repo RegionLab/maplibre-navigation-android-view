@@ -129,6 +129,9 @@
         <item name="navigationViewSpeedLimitTextColor">@android:color/black</item>
         <item name="navigationViewSpeedBackground">@drawable/navigation_speed_limit_background</item>
         <item name="navigationViewSpeedTextColor">@android:color/black</item>
+        <item name="navigationViewSpeedingBackground">@drawable/navigation_speed_speeding_background</item>
+        <item name="navigationViewSpeedingTextColor">@android:color/white</item>
+        <item name="navigationViewSpeedLimitNoneBackground">@drawable/navigation_speed_limit_none_background</item>
 
         <item name="navigationViewMapStyle">@string/navigation_guidance_day</item>
     </style>
@@ -163,6 +166,9 @@
         <item name="navigationViewSpeedLimitTextColor">@android:color/black</item>
         <item name="navigationViewSpeedBackground">@drawable/navigation_speed_limit_background</item>
         <item name="navigationViewSpeedTextColor">@android:color/black</item>
+        <item name="navigationViewSpeedingBackground">@drawable/navigation_speed_speeding_background</item>
+        <item name="navigationViewSpeedingTextColor">@android:color/white</item>
+        <item name="navigationViewSpeedLimitNoneBackground">@drawable/navigation_speed_limit_none_background</item>
 
         <item name="navigationViewMapStyle">@string/navigation_guidance_night</item>
     </style>

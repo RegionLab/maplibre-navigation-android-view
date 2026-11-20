@@ -71,6 +71,11 @@
     <attr name="navigationViewSpeedLimitTextColor" format="color"/>
     <attr name="navigationViewSpeedBackground" format="reference"/>
     <attr name="navigationViewSpeedTextColor" format="color"/>
+    <!-- Speed view while driving faster than the speed limit -->
+    <attr name="navigationViewSpeedingBackground" format="reference"/>
+    <attr name="navigationViewSpeedingTextColor" format="color"/>
+    <!-- Speed limit sign where no speed limit applies -->
+    <attr name="navigationViewSpeedLimitNoneBackground" format="reference"/>
 
     <!-- For setting the styles in XML -->
     <attr name="navigationLightTheme" format="reference"/>

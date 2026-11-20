@@ -20,26 +20,40 @@
 
     <LinearLayout
         android:id="@+id/rerouteLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:background="@drawable/instruction_background"
-        android:elevation="4dp"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <!-- Covers the instruction card while a new route is requested, the card keeps its size -->
+        <ProgressBar
+            android:id="@+id/rerouteProgress"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:indeterminate="true"
+            android:indeterminateTint="?attr/navigationViewAccent" />
+
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/rerouteText"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
             android:ellipsize="end"
+            android:maxLines="2"
             android:text="@string/rerouting"
-            android:textSize="20sp"
-            android:textStyle="bold"/>
+            android:textColor="?attr/navigationViewBannerPrimaryText"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
 

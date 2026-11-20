@@ -2,13 +2,9 @@ package org.maplibre.navigation.android.navigation.ui.v5.instruction;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -18,24 +14,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.fragment.app.FragmentActivity;
-import androidx.fragment.app.FragmentManager;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleObserver;
-import androidx.lifecycle.LifecycleOwner;
-import androidx.lifecycle.Observer;
-import androidx.lifecycle.OnLifecycleEvent;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.transition.AutoTransition;
 import androidx.transition.TransitionManager;
 
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationButton;
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationViewModel;
 import org.maplibre.navigation.android.navigation.ui.v5.R;
-import org.maplibre.navigation.android.navigation.ui.v5.SoundButton;
-import org.maplibre.navigation.android.navigation.ui.v5.ThemeSwitcher;
 import org.maplibre.navigation.android.navigation.ui.v5.instruction.maneuver.ManeuverView;
 import org.maplibre.navigation.android.navigation.ui.v5.instruction.turnlane.TurnLaneAdapter;
 import org.maplibre.navigation.android.navigation.ui.v5.listeners.InstructionListListener;
@@ -56,7 +40,6 @@ import org.maplibre.navigation.core.offroute.OffRouteListener;
 import org.maplibre.navigation.core.routeprogress.ProgressChangeListener;
 import org.maplibre.navigation.core.routeprogress.RouteProgress;
 
-import timber.log.Timber;
 
 /**
  * A view that can be used to display upcoming maneuver information and control
@@ -72,7 +55,7 @@ import timber.log.Timber;
  *
  * @since 0.6.0
  */
-public class InstructionView extends RelativeLayout implements LifecycleObserver {
+public class InstructionView extends RelativeLayout {
 
     private static final String COMPONENT_TYPE_LANE = "lane";
 
@@ -93,22 +76,16 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     private LinearLayout instructionLayoutText;
     private View instructionListLayout;
     private InstructionListAdapter instructionListAdapter;
-    private Animation rerouteSlideUpTop;
-    private Animation rerouteSlideDownTop;
+    private static final long REROUTE_FADE_DURATION_MS = 200;
     private LegStep currentStep;
-    private NavigationViewModel navigationViewModel;
     private InstructionListListener instructionListListener;
+    @Nullable
+    private RouteProgress lastRouteProgress;
 
     private DistanceFormatter distanceFormatter;
     private boolean isRerouting;
     private boolean instructionListEnabled = true;
-    private LifecycleOwner lifecycleOwner;
     private boolean instructionContentHidden;
-    private int maneuverViewVisibility = VISIBLE;
-    private int distanceViewVisibility = VISIBLE;
-    private int primaryTextVisibility = VISIBLE;
-    private int secondaryTextVisibility = VISIBLE;
-    private int instructionTextLayoutVisibility = VISIBLE;
     private int turnLaneLayoutVisibility = GONE;
     private int subStepLayoutVisibility = GONE;
     private int instructionListLayoutVisibility = GONE;
@@ -146,10 +123,8 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     protected void onFinishInflate() {
         super.onFinishInflate();
         bind();
-        initializeBackground();
         initializeTurnLaneRecyclerView();
         initializeInstructionListRecyclerView();
-        initializeAnimations();
         initializeStepListClickListener();
         ImageCreator.getInstance().initialize(getContext());
     }
@@ -161,67 +136,44 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     }
 
     /**
-     * Subscribes to a {@link NavigationViewModel} for
-     * updates from {@link androidx.lifecycle.LiveData}.
-     * <p>
-     * Updates all views with fresh data / shows &amp; hides re-route state.
+     * Updates the step distance, the instruction list and prefetches images for the next step.
      *
-     * @param navigationViewModel to which this View is subscribing
-     * @since 0.6.2
+     * @param model created from the current route progress
      */
-    public void subscribe(LifecycleOwner owner, NavigationViewModel navigationViewModel) {
-        lifecycleOwner = owner;
-        lifecycleOwner.getLifecycle().addObserver(this);
-        this.navigationViewModel = navigationViewModel;
-
-        navigationViewModel.instructionModel.observe(lifecycleOwner, new Observer<InstructionModel>() {
-            @Override
-            public void onChanged(@Nullable InstructionModel model) {
-                if (model != null) {
-                    updateDataFromInstruction(model);
-                }
-            }
-        });
-        navigationViewModel.bannerInstructionModel.observe(lifecycleOwner, new Observer<BannerInstructionModel>() {
-            @Override
-            public void onChanged(@Nullable BannerInstructionModel model) {
-                if (model != null && !isRerouting) {
-                    updateManeuverView(model.retrievePrimaryManeuverType(), model.retrievePrimaryManeuverModifier(),
-                            model.retrievePrimaryRoundaboutAngle(), model.retrieveDrivingSide());
-                    updateDataFromBannerText(model.retrievePrimaryBannerText(), model.retrieveSecondaryBannerText());
-                    updateSubStep(model.retrieveSubBannerText(), model.retrievePrimaryManeuverType());
-                }
-            }
-        });
-        navigationViewModel.isOffRoute.observe(lifecycleOwner, new Observer<Boolean>() {
-            @Override
-            public void onChanged(@Nullable Boolean isOffRoute) {
-                if (isOffRoute != null) {
-                    if (isOffRoute) {
-                        showRerouteState();
-                    } else if (isRerouting) {
-                        hideRerouteState();
-//            alertView.showReportProblem();
-                    }
-                    isRerouting = isOffRoute;
-                }
-            }
-        });
-        subscribeAlertView();
+    public void updateInstruction(@NonNull InstructionModel model) {
+        updateDataFromInstruction(model);
     }
 
     /**
-     * Unsubscribes {@link NavigationViewModel} {@link androidx.lifecycle.LiveData} objects
-     * previously added in {@link InstructionView#subscribe(LifecycleOwner, NavigationViewModel)}
-     * by removing the observers of the {@link LifecycleOwner} when parent view is destroyed
+     * Updates the maneuver, banner texts, sub step and turn lanes. Ignored while rerouting.
+     *
+     * @param model created from the banner instructions to display
      */
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void unsubscribe() {
-        if (navigationViewModel != null) {
-            navigationViewModel.instructionModel.removeObservers(lifecycleOwner);
-            navigationViewModel.bannerInstructionModel.removeObservers(lifecycleOwner);
-            navigationViewModel.isOffRoute.removeObservers(lifecycleOwner);
+    public void updateBannerInstruction(@NonNull BannerInstructionModel model) {
+        if (isRerouting) {
+            return;
         }
+        updateManeuverView(model.retrievePrimaryManeuverType(), model.retrievePrimaryManeuverModifier(),
+                model.retrievePrimaryRoundaboutAngle(), model.retrieveDrivingSide());
+        updateDataFromBannerText(model.retrievePrimaryBannerText(), model.retrieveSecondaryBannerText());
+        updateSubStep(model.retrieveSubBannerText(), model.retrievePrimaryManeuverType());
+    }
+
+    /**
+     * Shows the reroute state while a new route is requested and hides it afterwards.
+     *
+     * @param isRerouting true while a new route is requested
+     */
+    public void updateRerouteState(boolean isRerouting) {
+        if (isRerouting == this.isRerouting) {
+            return;
+        }
+        if (isRerouting) {
+            showRerouteState();
+        } else {
+            hideRerouteState();
+        }
+        this.isRerouting = isRerouting;
     }
 
     /**
@@ -267,31 +219,37 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
 
 
     /**
-     * Will slide the reroute view down from the top of the screen
-     * and make it visible
+     * Fades in the reroute state over the instruction card. The card keeps its size, the
+     * content below it (turn lanes, sub step, list) is hidden.
      *
      * @since 0.6.0
      */
     public void showRerouteState() {
         setInstructionContentHidden(true);
-        if (rerouteLayout.getVisibility() == INVISIBLE) {
-            rerouteLayout.startAnimation(rerouteSlideDownTop);
+        rerouteLayout.animate().cancel();
+        if (rerouteLayout.getVisibility() != VISIBLE) {
+            rerouteLayout.setAlpha(0f);
             rerouteLayout.setVisibility(VISIBLE);
         }
+        rerouteLayout.animate().alpha(1f).setDuration(REROUTE_FADE_DURATION_MS).start();
     }
 
     /**
-     * Will slide the reroute view up to the top of the screen
-     * and hide it
+     * Fades out the reroute state and shows the instruction content again.
      *
      * @since 0.6.0
      */
     public void hideRerouteState() {
         setInstructionContentHidden(false);
-        if (rerouteLayout.getVisibility() == VISIBLE) {
-            rerouteLayout.startAnimation(rerouteSlideUpTop);
-            rerouteLayout.setVisibility(INVISIBLE);
+        rerouteLayout.animate().cancel();
+        if (rerouteLayout.getVisibility() != VISIBLE) {
+            return;
         }
+        rerouteLayout.animate()
+                .alpha(0f)
+                .setDuration(REROUTE_FADE_DURATION_MS)
+                .withEndAction(() -> rerouteLayout.setVisibility(INVISIBLE))
+                .start();
     }
 
     /**
@@ -334,6 +292,10 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
             return;
         }
         onInstructionListVisibilityChanged(true);
+        // The list is not updated while hidden, catch up with the current progress
+        if (lastRouteProgress != null) {
+            instructionListAdapter.updateBannerListWith(lastRouteProgress, true);
+        }
         instructionLayout.requestFocus();
         beginDelayedListTransition();
         if (isLandscape()) {
@@ -421,33 +383,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     }
 
     /**
-     * For API 21 and lower, manually set the drawable tint based on the colors
-     * set in the given navigation theme (light or dark).
-     */
-    private void initializeBackground() {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) {
-            int navigationViewBannerBackgroundColor = ThemeSwitcher.retrieveThemeColor(getContext(),
-                    R.attr.navigationViewBannerBackground);
-            int navigationViewListBackgroundColor = ThemeSwitcher.retrieveThemeColor(getContext(),
-                    R.attr.navigationViewListBackground);
-            // Instruction Layout landscape - banner background
-            if (isLandscape()) {
-                View instructionLayoutManeuver = findViewById(R.id.instructionManeuverLayout);
-                Drawable maneuverBackground = DrawableCompat.wrap(instructionLayoutManeuver.getBackground()).mutate();
-                DrawableCompat.setTint(maneuverBackground, navigationViewBannerBackgroundColor);
-
-                View subStepLayout = findViewById(R.id.subStepLayout);
-                Drawable subStepBackground = DrawableCompat.wrap(subStepLayout.getBackground()).mutate();
-                DrawableCompat.setTint(subStepBackground, navigationViewListBackgroundColor);
-
-                View turnLaneLayout = findViewById(R.id.turnLaneLayout);
-                Drawable turnLaneBackground = DrawableCompat.wrap(turnLaneLayout.getBackground()).mutate();
-                DrawableCompat.setTint(turnLaneBackground, navigationViewListBackgroundColor);
-            }
-        }
-    }
-
-    /**
      * Sets up the {@link RecyclerView} that is used to display the turn lanes.
      */
     private void initializeTurnLaneRecyclerView() {
@@ -468,46 +403,30 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         rvInstructions.setLayoutManager(new LinearLayoutManager(getContext()));
     }
 
-    /**
-     * Initializes all animations needed to show / hide views.
-     */
-    private void initializeAnimations() {
-        Context context = getContext();
-        rerouteSlideDownTop = AnimationUtils.loadAnimation(context, R.anim.slide_down_top);
-        rerouteSlideUpTop = AnimationUtils.loadAnimation(context, R.anim.slide_up_top);
-    }
-
     private void setInstructionContentHidden(boolean hidden) {
         if (hidden == instructionContentHidden) {
             return;
         }
 
+        // The card content stays in place under the reroute state, so the card doesn't change
+        // size. Only the content below the card is hidden.
+        int cardContentAccessibility = hidden
+                ? IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                : IMPORTANT_FOR_ACCESSIBILITY_AUTO;
+        upcomingManeuverView.setImportantForAccessibility(cardContentAccessibility);
+        instructionLayoutText.setImportantForAccessibility(cardContentAccessibility);
+        upcomingDistanceText.setImportantForAccessibility(cardContentAccessibility);
         if (hidden) {
-            maneuverViewVisibility = upcomingManeuverView.getVisibility();
-            distanceViewVisibility = upcomingDistanceText.getVisibility();
-            primaryTextVisibility = upcomingPrimaryText.getVisibility();
-            secondaryTextVisibility = upcomingSecondaryText.getVisibility();
-            instructionTextLayoutVisibility = instructionLayoutText.getVisibility();
             turnLaneLayoutVisibility = turnLaneLayout.getVisibility();
             subStepLayoutVisibility = subStepLayout.getVisibility();
             instructionListLayoutVisibility = instructionListLayout.getVisibility();
             alertViewVisibility = alertView.getVisibility();
 
-            upcomingManeuverView.setVisibility(GONE);
-            upcomingDistanceText.setVisibility(GONE);
-            upcomingPrimaryText.setVisibility(GONE);
-            upcomingSecondaryText.setVisibility(GONE);
-            instructionLayoutText.setVisibility(GONE);
             turnLaneLayout.setVisibility(GONE);
             subStepLayout.setVisibility(GONE);
             instructionListLayout.setVisibility(GONE);
             alertView.setVisibility(GONE);
         } else {
-            upcomingManeuverView.setVisibility(maneuverViewVisibility);
-            upcomingDistanceText.setVisibility(distanceViewVisibility);
-            upcomingPrimaryText.setVisibility(primaryTextVisibility);
-            upcomingSecondaryText.setVisibility(secondaryTextVisibility);
-            instructionLayoutText.setVisibility(instructionTextLayoutVisibility);
             turnLaneLayout.setVisibility(turnLaneLayoutVisibility);
             subStepLayout.setVisibility(subStepLayoutVisibility);
             instructionListLayout.setVisibility(instructionListLayoutVisibility);
@@ -521,10 +440,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         if (instructionListListener != null) {
             instructionListListener.onInstructionListVisibilityChanged(visible);
         }
-    }
-
-    private void subscribeAlertView() {
-        alertView.subscribe(navigationViewModel);
     }
 
     private void initializeStepListClickListener() {
@@ -695,16 +610,6 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
         }
     }
 
-    @Nullable
-    private FragmentManager obtainSupportFragmentManager() {
-        try {
-            return ((FragmentActivity) getContext()).getSupportFragmentManager();
-        } catch (ClassCastException exception) {
-            Timber.e(exception);
-            return null;
-        }
-    }
-
     /**
      * Adjust the banner text layout {@link ConstraintLayout} vertical bias.
      *
@@ -729,9 +634,7 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
     }
 
     private void cancelDelayedTransition() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            clearAnimation();
-        }
+        clearAnimation();
     }
 
     private void updateDataFromInstruction(InstructionModel model) {
@@ -817,10 +720,13 @@ public class InstructionView extends RelativeLayout implements LifecycleObserver
      * @param model to provide the current steps and unit type
      */
     private void updateInstructionList(InstructionModel model) {
-        RouteProgress routeProgress = model.retrieveProgress();
-        boolean isListShowing = instructionListLayout.getVisibility() == VISIBLE;
+        lastRouteProgress = model.retrieveProgress();
+        // Rebuilding the list on every location update is wasted work while it is hidden
+        if (instructionListLayout.getVisibility() != VISIBLE) {
+            return;
+        }
         rvInstructions.stopScroll();
-        instructionListAdapter.updateBannerListWith(routeProgress, isListShowing);
+        instructionListAdapter.updateBannerListWith(lastRouteProgress, true);
     }
 
 }

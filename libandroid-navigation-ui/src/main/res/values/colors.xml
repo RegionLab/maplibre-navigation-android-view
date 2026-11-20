@@ -19,7 +19,6 @@
   <color name="maplibre_navigation_view_color_primary">#FFFFFF</color>
   <color name="maplibre_navigation_view_color_secondary">#28353D</color>
   <color name="maplibre_navigation_view_color_accent">#4882C6</color>
-  <color name="maplibre_navigation_view_color_primary_text">#424242</color>
   <color name="maplibre_navigation_view_color_accent_text">#424242</color>
   <color name="maplibre_navigation_view_color_divider">#D8D8D8</color>
 
@@ -35,7 +34,6 @@
   <color name="maplibre_navigation_view_color_primary_dark">#2D3F53</color>
   <color name="maplibre_navigation_view_color_secondary_dark">#D8D8D8</color>
   <color name="maplibre_navigation_view_color_accent_dark">#FFFFFF</color>
-  <color name="maplibre_navigation_view_color_primary_text_dark">#424242</color>
   <color name="maplibre_navigation_view_color_accent_text_dark">#FFFFFF</color>
   <color name="maplibre_navigation_view_color_divider_dark">#D8D8D8</color>
 
@@ -56,11 +54,7 @@
 
   <!-- Grey -->
   <color name="md_grey_200">#EEEEEE</color>
-  <color name="md_grey_400">#BDBDBD</color>
   <color name="md_grey_500">#9E9E9E</color>
-  <color name="md_grey_700">#616161</color>
-  <color name="md_grey_800">#424242</color>
-  <color name="md_grey_900">#212121</color>
   <color name="transparent">#00FFFFFF</color>
 </resources>
 

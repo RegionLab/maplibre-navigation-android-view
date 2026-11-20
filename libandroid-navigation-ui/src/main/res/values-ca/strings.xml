@@ -3,10 +3,6 @@
     <!-- Indicates that rerouting is in progress -->
     <string name="rerouting">Redirigint...</string>
 
-    <!-- Indicates voice instructions are muted -->
-    <string name="muted">Silenciat</string>
 
-    <!-- Indicates voice instructions are unmuted -->
-    <string name="unmuted">No silenciat</string>
 
 </resources>
