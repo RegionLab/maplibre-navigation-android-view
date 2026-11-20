@@ -21,7 +21,7 @@ android {
     namespace = "org.maplibre.navigation.android.navigation.ui.v5"
 
     defaultConfig {
-        compileSdk = 35
+        compileSdk = 36
         minSdk = 23
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -46,6 +46,8 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
+        // Translations are community provided, missing ones fall back to English
+        warning += "MissingTranslation"
     }
 
     configurations.create("javadocDeps")
@@ -83,8 +85,9 @@ dependencies {
     implementation(libs.maplibre)
     implementation(libs.maplibre.turf)
 
-    // Mapbox SDKs (needed for requests)
-    api(libs.mapbox.geojson)
+    // Route requests, part of the public RoutingService API
+    api(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     // Support libraries
     implementation(libs.material)
@@ -107,6 +110,7 @@ dependencies {
     testImplementation(libs.mockito)
     testImplementation(libs.robolectric)
     testImplementation(libs.mockk)
+    testImplementation(libs.objenesis)
 }
 
 apply {

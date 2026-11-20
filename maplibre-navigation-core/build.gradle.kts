@@ -66,6 +66,7 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.mockk)
+            implementation(libs.objenesis)
 
             // For Android specific tests
             implementation(libs.robolectric)
@@ -99,7 +100,7 @@ android {
     namespace = "org.maplibre.navigation.core"
 
     defaultConfig {
-        compileSdk = 35
+        compileSdk = 36
         minSdk = 23
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
