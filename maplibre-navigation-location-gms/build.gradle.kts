@@ -21,7 +21,7 @@ android {
     namespace = "org.maplibre.navigation.location.gms"
 
     defaultConfig {
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 23
     }
 

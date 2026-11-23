@@ -71,10 +71,6 @@ kotlin {
             // For Android specific tests
             implementation(libs.robolectric)
         }
-
-        androidMain.dependencies {
-            implementation(libs.maplibre)
-        }
     }
 
     cocoapods {
@@ -100,7 +96,7 @@ android {
     namespace = "org.maplibre.navigation.core"
 
     defaultConfig {
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 23
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "org.maplibre.navigation.android.example"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 23
         // Android 15 refuses to install apps targeting SDK 23 or lower
         targetSdk = 36

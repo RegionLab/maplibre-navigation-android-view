@@ -80,7 +80,7 @@ android {
     namespace = "org.maplibre.navigation.android.tts.sherpa"
 
     defaultConfig {
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 23
         consumerProguardFiles("consumer-rules.pro")
     }

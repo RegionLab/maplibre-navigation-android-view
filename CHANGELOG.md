@@ -86,9 +86,15 @@ MapLibre welcomes participation and contributions from everyone.
 ### Build
 
 - Update AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21, MapLibre 13.7.1, Spatial-K 0.8.0,
-  kotlinx-serialization 1.13.0, Dokka 2.3.0, Kermit 2.2.0, compileSdk 36 and test libraries.
+  kotlinx-serialization 1.13.0, Dokka 2.3.0, Kermit 2.2.0, compileSdk 37 and test libraries.
 - Remove Jetifier, multidex and the removed `dexOptions` block.
 - Remove the `com.mapbox.mapboxsdk:mapbox-sdk-services` dependency.
+
+## v5.0.1 - Sept 19, 2026
+
+- Allow `setIndex` on stopped navigation [#255](https://github.com/maplibre/maplibre-navigation-android/pull/255)
+- Fix crash by empty intersections in `NavigationHelper.findCurrentIntersection` [#261](https://github.com/maplibre/maplibre-navigation-android/pull/261)
+- Use own implementation of MapLibreLocationEngine to use GPS based fused provider. [#247](https://github.com/maplibre/maplibre-navigation-android/pull/247)
 
 ## v5.0.0 - Aug 26, 2026
 
