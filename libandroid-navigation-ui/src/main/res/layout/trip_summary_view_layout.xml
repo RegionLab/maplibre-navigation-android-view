@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:orientation="horizontal"
+    tools:parentTag="android.widget.LinearLayout">
+
+    <TextView
+        android:id="@+id/tripTimeRemainingText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textColor="?attr/navigationViewBannerPrimaryText"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        tools:text="12 min" />
+
+    <TextView
+        android:id="@+id/tripDetailsText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:maxLines="1"
+        android:textColor="?attr/navigationViewBannerSecondaryText"
+        android:textSize="16sp"
+        tools:text="5.4 km · 14:32" />
+</merge>

@@ -9,10 +9,12 @@ import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.navigation.android.navigation.ui.v5.BaseTest;
 
 import org.maplibre.navigation.core.navigation.MapLibreNavigation;
+import org.maplibre.navigation.core.navigation.camera.Camera;
 import org.maplibre.navigation.core.navigation.camera.RouteInformation;
 import org.maplibre.navigation.core.routeprogress.ProgressChangeListener;
 
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
@@ -20,6 +22,7 @@ import static junit.framework.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +39,7 @@ public class NavigationCameraTest extends BaseTest {
   @Test
   public void setTrackingEnabled_trackingIsEnabled() {
     LocationComponent locationComponent = mock(LocationComponent.class);
+    when(locationComponent.getLastKnownLocation()).thenReturn(mock(android.location.Location.class));
     NavigationCamera camera = buildCamera(locationComponent);
 
     verify(locationComponent, times(1)).setCameraMode(eq(CameraMode.TRACKING_GPS),
@@ -57,6 +61,7 @@ public class NavigationCameraTest extends BaseTest {
   @Test
   public void setTrackingDisabled_trackingIsDisabled() {
     LocationComponent locationComponent = mock(LocationComponent.class);
+    when(locationComponent.getLastKnownLocation()).thenReturn(mock(android.location.Location.class));
     NavigationCamera camera = buildCamera(locationComponent);
 
     verify(locationComponent, times(1)).setCameraMode(eq(CameraMode.TRACKING_GPS),
@@ -83,6 +88,36 @@ public class NavigationCameraTest extends BaseTest {
     camera.resetCameraPositionWith(NavigationCamera.NAVIGATION_TRACKING_MODE_GPS);
 
     assertTrue(camera.isTrackingEnabled());
+  }
+
+  @Test
+  public void updateTrackingMode_withoutLastKnownLocation_isDeferredUntilFirstProgressLocation() {
+    MapLibreMap mapLibreMap = mock(MapLibreMap.class);
+    when(mapLibreMap.getCameraPosition()).thenReturn(mock(CameraPosition.class));
+    MapLibreNavigation navigation = mock(MapLibreNavigation.class);
+    when(navigation.getCameraEngine()).thenReturn(mock(Camera.class));
+    LocationComponent locationComponent = mock(LocationComponent.class);
+    when(locationComponent.getCameraMode()).thenReturn(CameraMode.NONE);
+    NavigationCamera camera = new NavigationCamera(mapLibreMap, navigation, locationComponent);
+
+    verify(locationComponent, never()).setCameraMode(eq(CameraMode.TRACKING_GPS),
+      any(OnLocationCameraTransitionListener.class));
+
+    camera.onStart();
+    ArgumentCaptor<ProgressChangeListener> listenerCaptor = ArgumentCaptor.forClass(ProgressChangeListener.class);
+    verify(navigation).addProgressChangeListener(listenerCaptor.capture());
+
+    org.maplibre.navigation.core.location.Location firstLocation =
+      mock(org.maplibre.navigation.core.location.Location.class);
+    when(firstLocation.getProvider()).thenReturn("mock");
+    when(firstLocation.getLatitude()).thenReturn(43.0);
+    when(firstLocation.getLongitude()).thenReturn(76.0);
+
+    listenerCaptor.getValue().onProgressChange(firstLocation, null);
+
+    verify(locationComponent).forceLocationUpdate(any(android.location.Location.class));
+    verify(locationComponent).setCameraMode(eq(CameraMode.TRACKING_GPS),
+      any(OnLocationCameraTransitionListener.class));
   }
 
   @Test

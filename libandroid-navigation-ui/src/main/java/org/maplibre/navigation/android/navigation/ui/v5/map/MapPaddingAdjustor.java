@@ -12,24 +12,42 @@ class MapPaddingAdjustor {
   private static final int BOTTOMSHEET_PADDING_MULTIPLIER = 4;
   private static final int WAYNAME_PADDING_MULTIPLIER = 2;
 
+  private static final double DEFAULT_TOP_PADDING_FRACTION = .4;
+
   private final MapLibreMap mapLibreMap;
-  private final int[] defaultPadding;
+  private final MapView mapView;
+  private final int[] fixedDefaultPadding;
   private int[] customPadding;
+  private int bottomInset;
 
   MapPaddingAdjustor(MapView mapView, MapLibreMap mapLibreMap) {
     this.mapLibreMap = mapLibreMap;
-    defaultPadding = calculateDefaultPadding(mapView);
+    this.mapView = mapView;
+    this.fixedDefaultPadding = null;
   }
 
   // Testing only
   MapPaddingAdjustor(MapLibreMap mapLibreMap, int[] defaultPadding) {
     this.mapLibreMap = mapLibreMap;
-    this.defaultPadding = defaultPadding;
+    this.mapView = null;
+    this.fixedDefaultPadding = defaultPadding;
   }
 
   void updatePaddingWithDefault() {
     customPadding = null;
-    updatePaddingWith(defaultPadding);
+    updatePaddingWith(calculateDefaultPadding());
+  }
+
+  /**
+   * Height covered at the bottom of the map, e.g. by a bottom sheet. The default padding keeps the
+   * location icon in the visible part of the map.
+   */
+  void updateBottomInset(int bottomInset) {
+    this.bottomInset = Math.max(0, bottomInset);
+  }
+
+  int retrieveBottomInset() {
+    return bottomInset;
   }
 
   void adjustLocationIconWith(int[] customPadding) {
@@ -57,19 +75,14 @@ class MapPaddingAdjustor {
     }
   }
 
-  private int[] calculateDefaultPadding(MapView mapView) {
-    int defaultTopPadding = calculateTopPaddingWithoutWayname(mapView);
-    Resources resources = mapView.getContext().getResources();
-    int waynameLayoutHeight = (int) resources.getDimension(R.dimen.wayname_view_height);
-    int topPadding = defaultTopPadding - (waynameLayoutHeight * WAYNAME_PADDING_MULTIPLIER);
-    return new int[] {0, topPadding, 0, 0};
+  private int[] calculateDefaultPadding() {
+    if (fixedDefaultPadding != null) {
+      return fixedDefaultPadding;
+    }
+    // Calculated on demand, the map size changes e.g. on rotation or split screen
+    int visibleHeight = Math.max(0, mapView.getHeight() - bottomInset);
+    int defaultTopPadding = (int) (visibleHeight * DEFAULT_TOP_PADDING_FRACTION);
+    return new int[] {0, defaultTopPadding, 0, bottomInset};
   }
 
-  private int calculateTopPaddingWithoutWayname(MapView mapView) {
-    Context context = mapView.getContext();
-    Resources resources = context.getResources();
-    int mapViewHeight = mapView.getHeight();
-    int bottomSheetHeight = (int) resources.getDimension(R.dimen.summary_bottomsheet_height);
-    return mapViewHeight - (bottomSheetHeight * BOTTOMSHEET_PADDING_MULTIPLIER);
-  }
 }

@@ -10,32 +10,33 @@ apply {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 android {
     namespace = "org.maplibre.navigation.android.example"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
         applicationId = "org.maplibre.navigation.android.example"
         compileSdk = 37
         minSdk = 23
+        // Android 15 refuses to install apps targeting SDK 23 or lower
+        targetSdk = 36
 
         versionCode = 1
         versionName = project.properties.get("versionName") as String? ?: "0.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        multiDexEnabled = true
     }
 
     buildTypes {
@@ -50,15 +51,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-    }
-
-    dexOptions {
-        maxProcessCount = 8
-        javaMaxHeapSize = "2g"
-        preDexLibraries = true
-    }
-
-    buildFeatures {
         viewBinding = true
     }
 
@@ -69,6 +61,7 @@ android {
 
 dependencies {
     implementation(project(":libandroid-navigation-ui"))
+    implementation(project(":maplibre-navigation-tts-sherpa"))
 
     implementation(libs.maplibre)
 
@@ -76,7 +69,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.cardview)
     implementation(libs.androidx.cardview)
 
     // Logging
@@ -89,7 +81,6 @@ dependencies {
     implementation(libs.leakcanary)
 
     implementation(libs.androidx.lifecycle.viewmodel)
-    implementation(libs.androidx.multidex)
 }
 
 apply {

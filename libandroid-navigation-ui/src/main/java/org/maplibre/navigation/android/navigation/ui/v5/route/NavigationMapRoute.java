@@ -209,6 +209,10 @@ public class NavigationMapRoute implements LifecycleObserver {
    */
   public void addRoutes(@NonNull @Size(min = 1) List<DirectionsRoute> directionsRoutes) {
     routeLine.draw(directionsRoutes);
+    // The route line shows itself again when drawn, progress updates (traveled part, maneuver
+    // arrow, new routes) must follow, also after removeRoute() hid them
+    mapRouteProgressChangeListener.updateVisibility(true);
+    routeArrow.updateVisibilityTo(true);
   }
 
   /**
@@ -269,6 +273,16 @@ public class NavigationMapRoute implements LifecycleObserver {
   public void showAlternativeRoutes(boolean alternativesVisible) {
     mapRouteClickListener.updateAlternativesVisible(alternativesVisible);
     routeLine.toggleAlternativeVisibilityWith(alternativesVisible);
+  }
+
+  /**
+   * Removes the traveled part of the route line while navigating, the line starts at the user
+   * location. Disabling it shows the complete route again.
+   *
+   * @param isEnabled true to remove the traveled part
+   */
+  public void updateVanishingRouteLine(boolean isEnabled) {
+    mapRouteProgressChangeListener.updateVanishingEnabled(isEnabled);
   }
 
   /**
@@ -404,6 +418,8 @@ public class NavigationMapRoute implements LifecycleObserver {
     mapLibreMap.removeOnMapClickListener(mapRouteClickListener);
     mapRouteClickListener = new MapRouteClickListener(routeLine);
     mapLibreMap.addOnMapClickListener(mapRouteClickListener);
-    mapRouteProgressChangeListener = new MapRouteProgressChangeListener(routeLine, routeArrow);
+    // The registered progress listener keeps its settings (e.g. the vanishing route line) and
+    // draws on the new route line from now on
+    mapRouteProgressChangeListener.updateRouteLine(routeLine, routeArrow);
   }
 }

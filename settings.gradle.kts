@@ -21,5 +21,6 @@ rootProject.name = "maplibre-navigation"
 
 include(":maplibre-navigation-core")
 include(":maplibre-navigation-location-gms")
+include(":maplibre-navigation-tts-sherpa")
 include(":libandroid-navigation-ui")
 include(":app")

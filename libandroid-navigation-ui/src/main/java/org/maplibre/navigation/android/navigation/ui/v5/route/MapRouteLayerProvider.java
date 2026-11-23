@@ -9,9 +9,22 @@ import org.maplibre.android.style.layers.Property;
 import org.maplibre.android.style.layers.SymbolLayer;
 import org.maplibre.navigation.android.navigation.ui.v5.utils.MapImageUtils;
 
+import androidx.core.graphics.ColorUtils;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.maplibre.android.style.expressions.Expression.color;
 import static org.maplibre.android.style.expressions.Expression.exponential;
 import static org.maplibre.android.style.expressions.Expression.get;
+import static org.maplibre.android.style.expressions.Expression.all;
+import static org.maplibre.android.style.expressions.Expression.eq;
+import static org.maplibre.android.style.expressions.Expression.has;
+import static org.maplibre.android.style.expressions.Expression.not;
+import static org.maplibre.android.style.expressions.Expression.linear;
+import static org.maplibre.android.style.expressions.Expression.lineProgress;
 import static org.maplibre.android.style.expressions.Expression.interpolate;
 import static org.maplibre.android.style.expressions.Expression.literal;
 import static org.maplibre.android.style.expressions.Expression.match;
@@ -27,16 +40,18 @@ import static org.maplibre.android.style.layers.PropertyFactory.iconSize;
 import static org.maplibre.android.style.layers.PropertyFactory.lineCap;
 import static org.maplibre.android.style.layers.PropertyFactory.lineColor;
 import static org.maplibre.android.style.layers.PropertyFactory.lineJoin;
+import static org.maplibre.android.style.layers.PropertyFactory.lineGradient;
 import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.DESTINATION_MARKER_NAME;
-import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.HEAVY_CONGESTION_VALUE;
-import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.MODERATE_CONGESTION_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ORIGIN_MARKER_NAME;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.PRIMARY_ROUTE_PROPERTY_KEY;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_BLEND_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SHIELD_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SOURCE_ID;
-import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.SEVERE_CONGESTION_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_DESTINATION_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_ORIGIN_VALUE;
@@ -135,26 +150,129 @@ class MapRouteLayerProvider {
               literal(alternativeRouteScale))))
         )
       ),
-      lineColor(
-        switchCase(
-          get(PRIMARY_ROUTE_PROPERTY_KEY), match(
-            Expression.toString(get(RouteConstants.CONGESTION_KEY)),
-            color(routeDefaultColor),
-            stop(MODERATE_CONGESTION_VALUE, color(routeModerateColor)),
-            stop(HEAVY_CONGESTION_VALUE, color(routeSevereColor)),
-            stop(SEVERE_CONGESTION_VALUE, color(routeSevereColor))
-          ),
-          match(
-            Expression.toString(get(RouteConstants.CONGESTION_KEY)),
-            color(alternativeRouteDefaultColor),
-            stop(MODERATE_CONGESTION_VALUE, color(alternativeRouteModerateColor)),
-            stop(HEAVY_CONGESTION_VALUE, color(alternativeRouteSevereColor)),
-            stop(SEVERE_CONGESTION_VALUE, color(alternativeRouteSevereColor))
-          )
-        )
-      )
-    );
+      lineColor(paintColor(routeDefaultColor, routeModerateColor, routeSevereColor,
+        alternativeRouteDefaultColor, alternativeRouteModerateColor, alternativeRouteSevereColor))
+    ).withFilter(blendFilter(false, true));
     return routeLayer;
+  }
+
+  /**
+   * Copy of [template] on another source, e.g. for the part of the route near the user location
+   * that is updated on every frame.
+   */
+  LineLayer copyLineLayer(Style style, LineLayer template, String layerId, String sourceId) {
+    LineLayer layer = style.getLayerAs(layerId);
+    if (layer != null) {
+      style.removeLayer(layer);
+    }
+    layer = new LineLayer(layerId, sourceId).withProperties(
+      lineCap(template.getLineCap().getValue()),
+      lineJoin(template.getLineJoin().getValue()),
+      lineWidth(template.getLineWidth().getExpression()),
+      lineColor(template.getLineColor().getExpression())
+    );
+    Expression filter = template.getFilter();
+    if (filter != null) {
+      layer.setFilter(filter);
+    }
+    return layer;
+  }
+
+  /** Color steps between traffic levels, with butt caps, see {@link RouteLinePainter}. */
+  LineLayer initializeRouteBlendLayer(Style style, LineLayer routeLayer, int routeDefaultColor, int routeModerateColor,
+                                      int routeSevereColor, int alternativeRouteDefaultColor,
+                                      int alternativeRouteModerateColor, int alternativeRouteSevereColor) {
+    LineLayer layer = style.getLayerAs(ROUTE_BLEND_LAYER_ID);
+    if (layer != null) {
+      style.removeLayer(layer);
+    }
+    return new LineLayer(ROUTE_BLEND_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+      lineCap(Property.LINE_CAP_BUTT),
+      lineJoin(Property.LINE_JOIN_ROUND),
+      lineWidth(routeLayer.getLineWidth().getExpression()),
+      lineColor(paintColor(routeDefaultColor, routeModerateColor, routeSevereColor,
+        alternativeRouteDefaultColor, alternativeRouteModerateColor, alternativeRouteSevereColor))
+    ).withFilter(blendFilter(true, true));
+  }
+
+  /**
+   * Filter of the route line ([blend] false) and blend ([blend] true) layers.
+   *
+   * @param alternatives true to show alternative routes too
+   */
+  static Expression blendFilter(boolean blend, boolean alternatives) {
+    Expression isBlend = has(RouteLinePainter.BLEND_KEY);
+    Expression blendFilter = blend ? isBlend : not(isBlend);
+    return alternatives ? blendFilter : all(blendFilter, Expression.eq(get(PRIMARY_ROUTE_PROPERTY_KEY), true));
+  }
+
+  /** Shield of the fading start of the route line, see {@link RouteLinePainter#fadeFeature}. */
+  LineLayer initializeRouteFadeShieldLayer(Style style, LineLayer shieldLayer, int routeShieldColor) {
+    return fadeLayer(style, ROUTE_FADE_SHIELD_LAYER_ID, shieldLayer, routeShieldColor, null);
+  }
+
+  /**
+   * Fading start of the route line in the color of a traffic level: line gradients can't depend on
+   * feature properties, so there is one layer per level.
+   */
+  LineLayer initializeRouteFadeLayer(Style style, LineLayer routeLayer, String level, int levelColor) {
+    return fadeLayer(style, ROUTE_FADE_LAYER_ID + "-" + level, routeLayer, levelColor, level);
+  }
+
+  private LineLayer fadeLayer(Style style, String layerId, LineLayer widthLayer, int color, String level) {
+    LineLayer layer = style.getLayerAs(layerId);
+    if (layer != null) {
+      style.removeLayer(layer);
+    }
+    layer = new LineLayer(layerId, ROUTE_FADE_SOURCE_ID).withProperties(
+      lineCap(Property.LINE_CAP_BUTT),
+      lineJoin(Property.LINE_JOIN_ROUND),
+      lineWidth(widthLayer.getLineWidth().getExpression()),
+      lineGradient(interpolate(
+        linear(), lineProgress(),
+        stop(0f, color(ColorUtils.setAlphaComponent(color, 0))),
+        stop(1f, color(color))
+      ))
+    );
+    if (level != null) {
+      layer.setFilter(eq(Expression.toString(get(RouteLinePainter.PAINT_KEY)), literal(level)));
+    }
+    return layer;
+  }
+
+  /** Colors of the paint keys of {@link RouteLinePainter}, for the primary and alternative routes. */
+  private static Expression paintColor(int defaultColor, int moderateColor, int severeColor,
+                                       int alternativeDefaultColor, int alternativeModerateColor,
+                                       int alternativeSevereColor) {
+    return switchCase(
+      get(PRIMARY_ROUTE_PROPERTY_KEY), paintMatch(defaultColor, moderateColor, severeColor),
+      paintMatch(alternativeDefaultColor, alternativeModerateColor, alternativeSevereColor)
+    );
+  }
+
+  private static Expression paintMatch(int defaultColor, int moderateColor, int severeColor) {
+    Map<String, Integer> levelColors = new LinkedHashMap<>();
+    levelColors.put(RouteLinePainter.LEVEL_BASE, defaultColor);
+    levelColors.put(RouteLinePainter.LEVEL_MODERATE, moderateColor);
+    levelColors.put(RouteLinePainter.LEVEL_SEVERE, severeColor);
+    List<Expression.Stop> stops = new ArrayList<>();
+    for (String level : RouteLinePainter.LEVELS) {
+      stops.add(stop(level, color(levelColors.get(level))));
+    }
+    for (String from : RouteLinePainter.LEVELS) {
+      for (String to : RouteLinePainter.LEVELS) {
+        if (from.equals(to)) {
+          continue;
+        }
+        for (int step = 0; step < RouteLinePainter.BLEND_STEPS; step++) {
+          int blended = ColorUtils.blendARGB(levelColors.get(from), levelColors.get(to),
+            (float) RouteLinePainter.blendFraction(step));
+          stops.add(stop(RouteLinePainter.blendKey(from, to, step), color(blended)));
+        }
+      }
+    }
+    return match(Expression.toString(get(RouteLinePainter.PAINT_KEY)), color(defaultColor),
+      stops.toArray(new Expression.Stop[0]));
   }
 
   SymbolLayer initializeWayPointLayer(Style style, Drawable originIcon,

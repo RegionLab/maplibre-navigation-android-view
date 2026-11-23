@@ -61,6 +61,8 @@ public class NavigationMapLibreMap {
   private static final String STREETS_V8_ROAD_LABEL = "road";
   private static final String INCIDENTS_LAYER_ID = "closures";
   private static final String TRAFFIC_LAYER_ID = "traffic";
+  private static final long WAY_NAME_QUERY_MIN_INTERVAL_MS = 250L;
+  private static final double WAY_NAME_QUERY_MIN_DISTANCE_METERS = 4d;
   private static final int[] ZERO_MAP_PADDING = {0, 0, 0, 0};
   private static final double NAVIGATION_MAXIMUM_MAP_ZOOM = 18d;
   private final CopyOnWriteArrayList<OnWayNameChangedListener> onWayNameChangedListeners
@@ -81,6 +83,10 @@ public class NavigationMapLibreMap {
   @Nullable
   private MapFpsDelegate mapFpsDelegate;
   private LocationFpsDelegate locationFpsDelegate;
+  private final LocationLookAhead locationLookAhead = new LocationLookAhead();
+  private long lastWayNameQueryTimestampMs;
+  private double lastWayNameQueryLatitude = Double.NaN;
+  private double lastWayNameQueryLongitude = Double.NaN;
 
   /**
    * Constructor that can be used once {@link OnMapReadyCallback}
@@ -201,7 +207,7 @@ public class NavigationMapLibreMap {
    * @param location to update the icon and query the map
    */
   public void updateLocation(Location location) {
-    locationComponent.forceLocationUpdate(toAndroidLocation(location));
+    locationLookAhead.update(locationComponent, toAndroidLocation(location));
     updateMapWayNameWithLocation(location);
   }
 
@@ -369,6 +375,15 @@ public class NavigationMapLibreMap {
    * Will remove the drawn route displayed on the map.  Does nothing
    * if no route is drawn.
    */
+  /**
+   * Removes the traveled part of the route line while navigating.
+   *
+   * @param isEnabled true to remove the traveled part, false to show the complete route
+   */
+  public void updateVanishingRouteLine(boolean isEnabled) {
+    mapRoute.updateVanishingRouteLine(isEnabled);
+  }
+
   public void removeRoute() {
     mapRoute.removeRoute();
   }
@@ -432,6 +447,22 @@ public class NavigationMapLibreMap {
    */
   public void resetPadding() {
     mapPaddingAdjustor.resetPadding();
+  }
+
+  /**
+   * Sets the height covered at the bottom of the map, e.g. by a bottom sheet, so the location icon
+   * stays visible while the camera is tracking.
+   *
+   * @param bottomInset covered height in pixels
+   */
+  public void updateBottomInset(int bottomInset) {
+    if (mapPaddingAdjustor.retrieveBottomInset() == bottomInset) {
+      return;
+    }
+    mapPaddingAdjustor.updateBottomInset(bottomInset);
+    if (mapPaddingAdjustor.isUsingDefault() && mapCamera.isTrackingEnabled()) {
+      mapPaddingAdjustor.updatePaddingWithDefault();
+    }
   }
 
   /**
@@ -731,9 +762,35 @@ public class NavigationMapLibreMap {
     if (mapWayName == null) {
       return;
     }
+    if (!shouldQueryWayName(location)) {
+      return;
+    }
     LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
     PointF mapPoint = mapLibreMap.getProjection().toScreenLocation(latLng);
     mapWayName.updateWayNameWithPoint(mapPoint);
+  }
+
+  private boolean shouldQueryWayName(Location location) {
+    long nowMs = System.currentTimeMillis();
+    if (nowMs - lastWayNameQueryTimestampMs < WAY_NAME_QUERY_MIN_INTERVAL_MS
+      && !hasMovedEnoughForWayName(location.getLatitude(), location.getLongitude())) {
+      return false;
+    }
+    lastWayNameQueryTimestampMs = nowMs;
+    lastWayNameQueryLatitude = location.getLatitude();
+    lastWayNameQueryLongitude = location.getLongitude();
+    return true;
+  }
+
+  private boolean hasMovedEnoughForWayName(double latitude, double longitude) {
+    if (Double.isNaN(lastWayNameQueryLatitude) || Double.isNaN(lastWayNameQueryLongitude)) {
+      return true;
+    }
+    float[] results = new float[1];
+    android.location.Location.distanceBetween(
+      lastWayNameQueryLatitude, lastWayNameQueryLongitude, latitude, longitude, results
+    );
+    return results[0] >= WAY_NAME_QUERY_MIN_DISTANCE_METERS;
   }
 
   private void restoreMapWith(NavigationMapSettings settings) {

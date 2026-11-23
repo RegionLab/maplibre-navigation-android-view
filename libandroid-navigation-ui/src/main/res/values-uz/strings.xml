@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Indicates that rerouting is in progress -->
+    <string name="rerouting">Qayta marshrutlanmoqda…</string>
+
+    <!-- Button title for re-centering tracking -->
+    <string name="re_center">QAYTA MARKAZLASH</string>
+
+
+    <!-- Shown in off-route scenarios to provide feedback -->
+    <string name="report_problem">Muammo haqida xabar berish</string>
+
+
+
+
+    <!-- Should not be translated -->
+    <string name="navigation_guidance_day"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-day-v4</string>
+    <string name="navigation_guidance_night"
+            translatable="false">mapbox://styles/mapbox/navigation-guidance-night-v4</string>
+
+    <string name="kilometers">km</string>
+    <string name="meters">m</string>
+    <string name="miles">mil</string>
+    <string name="feet">ft</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Navigatsiya bildirishnomalari</string>
+    <string name="notification_eta_format">%s ETA</string>
+    <string name="notification_end_navigation">Navigatsiyani tugatish</string>
+
+    <!-- Time formatting -->
+    <plurals name="numberOfDays">
+        <item quantity="one">kun</item>
+        <item quantity="other">kun</item>
+    </plurals>
+    <!-- Hour -->
+    <string name="hr">soat</string>
+    <!-- Minute -->
+    <string name="min">daq</string>
+    <!-- Spoken when navigation continues along a new route after leaving the route -->
+    <string name="navigation_view_rerouted_announcement">Yo‘nalish qayta tuzildi</string>
+</resources>

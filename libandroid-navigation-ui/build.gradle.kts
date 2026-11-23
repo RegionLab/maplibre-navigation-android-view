@@ -9,12 +9,12 @@ apply {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 android {
@@ -46,6 +46,8 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
+        // Translations are community provided, missing ones fall back to English
+        warning += "MissingTranslation"
     }
 
     configurations.create("javadocDeps")
@@ -83,8 +85,9 @@ dependencies {
     implementation(libs.maplibre)
     implementation(libs.maplibre.turf)
 
-    // Mapbox SDKs (needed for requests)
-    api(libs.mapbox.geojson)
+    // Route requests, part of the public RoutingService API
+    api(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     // Support libraries
     implementation(libs.material)
@@ -107,9 +110,10 @@ dependencies {
     testImplementation(libs.mockito)
     testImplementation(libs.robolectric)
     testImplementation(libs.mockk)
+    testImplementation(libs.objenesis)
 }
 
 apply {
-    from(file("javadoc.gradle"))
     from(file("${rootDir}/gradle/publish-android.gradle"))
 }
+

@@ -485,7 +485,8 @@ class OffRouteDetectorTest : BaseTest() {
     }
 
     @Test
-    fun isUserOffRoute_assertTrueWhenRouteDistanceRemainingIsZero() {
+    fun isUserOffRoute_assertFalseWhenRouteDistanceRemainingIsZero() {
+        // Zero remaining distance doesn't trigger off-route, otherwise it reroutes endlessly at the destination
         val location = Location(provider = "test", latitude = 0.0, longitude = 0.0)
         val routeProgress = mockk<RouteProgress>()
         every { routeProgress.distanceRemaining } returns 0.0
@@ -493,6 +494,6 @@ class OffRouteDetectorTest : BaseTest() {
         val offRouteDetector = OffRouteDetector()
         val isOffRoute = offRouteDetector.isUserOffRoute(location, routeProgress, defaultOptions)
 
-        assertTrue(isOffRoute)
+        assertFalse(isOffRoute)
     }
 }

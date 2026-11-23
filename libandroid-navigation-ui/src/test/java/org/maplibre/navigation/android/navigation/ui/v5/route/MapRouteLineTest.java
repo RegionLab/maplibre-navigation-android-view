@@ -1,5 +1,8 @@
 package org.maplibre.navigation.android.navigation.ui.v5.route;
 
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_BLEND_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SHIELD_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_LAYER_ID;
@@ -10,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -142,6 +146,24 @@ public class MapRouteLineTest extends BaseTest {
     when(mapRouteLayerProvider.initializeRouteShieldLayer(
       eq(style), anyFloat(), anyFloat(), anyInt(), anyInt()
     )).thenReturn(routeShieldLayer);
+    when(mapRouteLayerProvider.copyLineLayer(eq(style), any(LineLayer.class), anyString(), anyString()))
+      .thenAnswer(invocation -> {
+        LineLayer copy = mock(LineLayer.class);
+        when(copy.getId()).thenReturn((String) invocation.getArgument(2));
+        return copy;
+      });
+    LineLayer routeBlendLayer = mock(LineLayer.class);
+    when(routeBlendLayer.getId()).thenReturn(ROUTE_BLEND_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteBlendLayer(eq(style), any(LineLayer.class),
+      anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(routeBlendLayer);
+    LineLayer routeFadeShieldLayer = mock(LineLayer.class);
+    when(routeFadeShieldLayer.getId()).thenReturn(ROUTE_FADE_SHIELD_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteFadeShieldLayer(eq(style), any(LineLayer.class), anyInt()))
+      .thenReturn(routeFadeShieldLayer);
+    LineLayer routeFadeLayer = mock(LineLayer.class);
+    when(routeFadeLayer.getId()).thenReturn(ROUTE_FADE_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteFadeLayer(eq(style), any(LineLayer.class), anyString(), anyInt()))
+      .thenReturn(routeFadeLayer);
     when(mapRouteLayerProvider.initializeWayPointLayer(
       eq(style), any(Drawable.class), any(Drawable.class)
     )).thenReturn(wayPointLayer);
@@ -179,9 +201,9 @@ public class MapRouteLineTest extends BaseTest {
 
     verify(style).addLayer(routeLayer);
     verify(style).addLayer(routeShieldLayer);
-    verify(style).addLayer(wayPointLayer);
+    verify(style, times(0)).addLayer(wayPointLayer);
     verify(style).addSource(routeLineSource);
-    verify(style).addSource(wayPointSource);
+    verify(style, times(0)).addSource(wayPointSource);
 
     verify(routeLineSource, times(0)).setGeoJson(any(FeatureCollection.class));
     verify(wayPointSource, times(0)).setGeoJson(any(FeatureCollection.class));
@@ -360,6 +382,24 @@ public class MapRouteLineTest extends BaseTest {
     when(mapRouteLayerProvider.initializeRouteShieldLayer(
       eq(style), anyFloat(), anyFloat(), anyInt(), anyInt()
     )).thenReturn(routeShieldLayer);
+    when(mapRouteLayerProvider.copyLineLayer(eq(style), any(LineLayer.class), anyString(), anyString()))
+      .thenAnswer(invocation -> {
+        LineLayer copy = mock(LineLayer.class);
+        when(copy.getId()).thenReturn((String) invocation.getArgument(2));
+        return copy;
+      });
+    LineLayer routeBlendLayer = mock(LineLayer.class);
+    when(routeBlendLayer.getId()).thenReturn(ROUTE_BLEND_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteBlendLayer(eq(style), any(LineLayer.class),
+      anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(routeBlendLayer);
+    LineLayer routeFadeShieldLayer = mock(LineLayer.class);
+    when(routeFadeShieldLayer.getId()).thenReturn(ROUTE_FADE_SHIELD_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteFadeShieldLayer(eq(style), any(LineLayer.class), anyInt()))
+      .thenReturn(routeFadeShieldLayer);
+    LineLayer routeFadeLayer = mock(LineLayer.class);
+    when(routeFadeLayer.getId()).thenReturn(ROUTE_FADE_LAYER_ID);
+    when(mapRouteLayerProvider.initializeRouteFadeLayer(eq(style), any(LineLayer.class), anyString(), anyInt()))
+      .thenReturn(routeFadeLayer);
     when(mapRouteLayerProvider.initializeWayPointLayer(
       eq(style), any(Drawable.class), any(Drawable.class)
     )).thenReturn(wayPointLayer);

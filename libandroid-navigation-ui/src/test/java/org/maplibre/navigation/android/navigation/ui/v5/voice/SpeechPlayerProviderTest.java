@@ -6,8 +6,6 @@ import static org.mockito.Mockito.mock;
 
 import android.content.Context;
 
-import org.maplibre.navigation.android.navigation.ui.v5.ConnectivityStatusProvider;
-
 import org.junit.Test;
 import org.maplibre.navigation.android.navigation.ui.v5.voice.AndroidSpeechPlayer;
 import org.maplibre.navigation.android.navigation.ui.v5.voice.SpeechPlayer;
@@ -46,7 +44,6 @@ public class SpeechPlayerProviderTest {
   private SpeechPlayerProvider buildSpeechPlayerProvider(boolean voiceLanguageSupported) {
     Context context = mock(Context.class);
     String language = Locale.US.getLanguage();
-    ConnectivityStatusProvider connectivityStatus = mock(ConnectivityStatusProvider.class);
-    return new SpeechPlayerProvider(context, language, voiceLanguageSupported, connectivityStatus);
+    return new SpeechPlayerProvider(context, language, voiceLanguageSupported);
   }
 }

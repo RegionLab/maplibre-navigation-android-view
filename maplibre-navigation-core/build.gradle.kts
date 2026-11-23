@@ -16,12 +16,12 @@ apply {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 
     androidTarget {
         publishLibraryVariants("release")
@@ -66,6 +66,7 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.mockk)
+            implementation(libs.objenesis)
 
             // For Android specific tests
             implementation(libs.robolectric)

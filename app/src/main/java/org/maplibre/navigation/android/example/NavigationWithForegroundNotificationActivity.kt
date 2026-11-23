@@ -2,7 +2,6 @@ package org.maplibre.navigation.android.example
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.Request
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.OnLocationCameraTransitionListener
@@ -16,22 +15,17 @@ import org.maplibre.navigation.android.navigation.ui.v5.notification.NavigationN
 import org.maplibre.navigation.android.navigation.ui.v5.notification.service.NavigationNotificationService
 import org.maplibre.navigation.android.navigation.ui.v5.notification.service.NavigationNotificationServiceConnection
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
 import org.maplibre.navigation.android.navigation.ui.v5.toMapLibre
 import org.maplibre.navigation.core.location.Location
 import org.maplibre.navigation.core.location.replay.ReplayRouteLocationEngine
-import org.maplibre.navigation.core.models.DirectionsResponse
 import org.maplibre.navigation.core.models.DirectionsRoute
-import org.maplibre.navigation.core.models.UnitType
 import org.maplibre.navigation.core.navigation.AndroidMapLibreNavigation
 import org.maplibre.navigation.core.navigation.MapLibreNavigation
 import org.maplibre.navigation.core.navigation.MapLibreNavigationOptions
 import org.maplibre.navigation.core.routeprogress.ProgressChangeListener
 import org.maplibre.navigation.core.routeprogress.RouteProgress
 import org.maplibre.spatialk.geojson.Point
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import org.maplibre.navigation.android.navigation.ui.v5.RouteRequest
 import timber.log.Timber
 import android.location.Location as AndroidLocation
 
@@ -139,38 +133,21 @@ class NavigationWithForegroundNotificationActivity : AppCompatActivity(), OnMapR
     }
 
     private fun calculateRouteAndStartNavigation() {
-        val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
-            this.origin(Point(9.7536318, 52.3717979).toMapLibre())
-            this.addWaypoint(Point(9.741052, 52.360496).toMapLibre())
-            this.destination(Point(9.756259, 52.342620).toMapLibre())
-            this.voiceUnits(UnitType.METRIC)
-            this.alternatives(true)
-            this.baseUrl(getString(R.string.base_url))
-        }
-
-        navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>,
-            ) {
-                Timber.d("Url: %s", (call.request() as Request).url.toString())
-                response.body()?.let { responseBody ->
-                    if (responseBody.routes.isNotEmpty()) {
-                        val maplibreResponse = DirectionsResponse.fromJson(responseBody.toJson());
-                        val directionsRoute = maplibreResponse.routes.first()
-                        this@NavigationWithForegroundNotificationActivity.route = directionsRoute
-                        navigationMapRoute?.addRoutes(maplibreResponse.routes)
-
-                        startNavigation()
-                    }
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, throwable: Throwable) {
-                Timber.e(throwable, "onFailure: navigation.getRoute()")
-            }
-        })
+        SampleRouting.client.getRoute(
+            SampleRouting.service(this),
+            RouteRequest(
+                origin = Point( 10.246249, 50.055795).toMapLibre(),
+                destination = Point( 10.245291,50.056129).toMapLibre(),
+                waypoints = listOf(Point(10.243814,50.055662).toMapLibre()),
+                alternatives = true,
+            ),
+            onRoutesReady = { response ->
+                this@NavigationWithForegroundNotificationActivity.route = response.routes.first()
+                navigationMapRoute?.addRoutes(response.routes)
+                startNavigation()
+            },
+            onError = { error -> Timber.e(error, "Route request failed") }
+        )
     }
 
     fun startNavigation() {

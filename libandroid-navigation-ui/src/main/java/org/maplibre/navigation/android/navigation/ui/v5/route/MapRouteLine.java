@@ -2,7 +2,6 @@ package org.maplibre.navigation.android.navigation.ui.v5.route;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 
 import androidx.annotation.ColorInt;
@@ -29,18 +28,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.maplibre.android.style.expressions.Expression.literal;
 import static org.maplibre.android.style.layers.Property.NONE;
 import static org.maplibre.android.style.layers.Property.VISIBLE;
 import static org.maplibre.android.style.layers.PropertyFactory.visibility;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.PRIMARY_ROUTE_PROPERTY_KEY;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_LAYER_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SHIELD_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_BLEND_LAYER_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_FADE_SOURCE_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_NEAR_LAYER_SUFFIX;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_NEAR_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.ROUTE_SOURCE_ID;
+import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_DESTINATION_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_ORIGIN_VALUE;
 import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_PROPERTY_KEY;
-import static org.maplibre.navigation.android.navigation.ui.v5.route.RouteConstants.WAYPOINT_SOURCE_ID;
 
 class MapRouteLine {
 
@@ -73,6 +75,15 @@ class MapRouteLine {
 
   private final GeoJsonSource wayPointSource;
   private final GeoJsonSource routeLineSource;
+  // Fading start of the vanishing primary route, line gradients need line metrics
+  private GeoJsonSource routeFadeSource;
+  // Part of the vanishing primary route near the user location, updated on every frame. The rest
+  // of the route is updated only every NEAR_ROUTE_STEP_METERS, on large routes re-tiling the whole
+  // route on every frame costs a lot of CPU.
+  private GeoJsonSource routeNearSource;
+  private double farRouteStart = Double.NaN;
+  private static final double NEAR_ROUTE_STEP_METERS = 200;
+  private static final double NEAR_ROUTE_MIN_METERS = 200;
   private int primaryRouteIndex;
   private boolean isVisible = true;
   private boolean alternativesVisible = true;
@@ -85,6 +96,15 @@ class MapRouteLine {
   private PrimaryRouteUpdateTask primaryRouteUpdateTask;
   private boolean isPrimaryRouteUpdateTaskInjected = false;
   private Handler mainHandler;
+  // Route collections last drawn with the current primary route flags, the base for trimming
+  private List<FeatureCollection> drawnRouteCollections = new ArrayList<>();
+  private RouteLineTrimmer routeLineTrimmer;
+  // Primary route by distance, for the vanishing route line
+  private RouteLinePainter primaryRoutePainter;
+  private final RouteVanishAnimator vanishAnimator = new RouteVanishAnimator(traveled -> {
+    drawVanishedRoute(traveled);
+    return kotlin.Unit.INSTANCE;
+  });
 
   MapRouteLine(Context context,
                Style style,
@@ -158,28 +178,32 @@ class MapRouteLine {
     alternativeRouteScale = typedArray.getFloat(
       R.styleable.NavigationMapRoute_alternativeRouteScale, 1.0f);
 
+    // Waypoint source is intentionally not added to the style: origin/destination icons are hidden,
+    // markers are managed by the app via NavigationView.addSymbol
     GeoJsonOptions wayPointGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnWaypointsFeatureCollection = waypointsFeatureCollection;
     wayPointSource = sourceProvider.build(WAYPOINT_SOURCE_ID, drawnWaypointsFeatureCollection, wayPointGeoJsonOptions);
-    style.addSource(wayPointSource);
 
     GeoJsonOptions routeLineGeoJsonOptions = new GeoJsonOptions().withMaxZoom(16);
     drawnRouteFeatureCollection = routesFeatureCollection;
-    routeLineSource = sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions);
-    style.addSource(routeLineSource);
+    routeLineSource = addOrReuseSource(style, ROUTE_SOURCE_ID,
+      sourceProvider.build(ROUTE_SOURCE_ID, drawnRouteFeatureCollection, routeLineGeoJsonOptions),
+      drawnRouteFeatureCollection);
 
-    // Waypoint attributes
-    int originWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_originWaypointIcon, R.drawable.ic_route_origin);
-    int destinationWaypointIcon = typedArray.getResourceId(
-      R.styleable.NavigationMapRoute_destinationWaypointIcon, R.drawable.ic_route_destination);
+    FeatureCollection noNearRoute = FeatureCollection.fromFeatures(new Feature[]{});
+    routeNearSource = addOrReuseSource(style, ROUTE_NEAR_SOURCE_ID,
+      sourceProvider.build(ROUTE_NEAR_SOURCE_ID, noNearRoute, new GeoJsonOptions().withMaxZoom(16)),
+      noNearRoute);
+
+    FeatureCollection noFade = FeatureCollection.fromFeatures(new Feature[]{});
+    routeFadeSource = addOrReuseSource(style, ROUTE_FADE_SOURCE_ID,
+      sourceProvider.build(ROUTE_FADE_SOURCE_ID, noFade, new GeoJsonOptions().withMaxZoom(16).withLineMetrics(true)),
+      noFade);
+
     typedArray.recycle();
-
-    Drawable originIcon = drawableProvider.retrieveDrawable(originWaypointIcon);
-    Drawable destinationIcon = drawableProvider.retrieveDrawable(destinationWaypointIcon);
     belowLayer = findRouteBelowLayerId(belowLayer, style);
 
-    initializeLayers(style, layerProvider, originIcon, destinationIcon, belowLayer);
+    initializeLayers(style, layerProvider, belowLayer);
 
     this.directionsRoutes.addAll(directionsRoutes);
     this.routeFeatureCollections.addAll(routeFeatureCollections);
@@ -266,7 +290,89 @@ class MapRouteLine {
     return primaryRouteIndex;
   }
 
+  /**
+   * Removes the traveled part of the primary route, the line fades in after the given location
+   * projected onto the route. The vanishing point moves smoothly to the location. Does nothing
+   * while the location is far from the route.
+   */
+  void vanishTraveledRoute(Point location) {
+    if (drawnRouteCollections.isEmpty() || primaryRouteIndex >= drawnRouteCollections.size()
+      || primaryRouteIndex >= directionsRoutes.size()) {
+      return;
+    }
+    if (routeLineTrimmer == null || primaryRoutePainter == null) {
+      primaryRoutePainter = RouteLinePainter.create(directionsRoutes.get(primaryRouteIndex));
+      routeLineTrimmer = new RouteLineTrimmer(primaryRoutePainter.getGeometry().getCoordinates());
+      vanishAnimator.reset();
+    }
+    RouteLineTrimmer.Located located = routeLineTrimmer.locate(location);
+    if (located == null) {
+      return;
+    }
+    double traveled = primaryRoutePainter.getGeometry().distanceAt(located.getSegmentIndex(), located.getPoint());
+    vanishAnimator.animateTo(traveled);
+  }
+
+  private void drawVanishedRoute(double traveled) {
+    if (primaryRoutePainter == null || primaryRouteIndex >= drawnRouteCollections.size()) {
+      return;
+    }
+    // The near part ends 200-400 m ahead, the far part changes only when that end moves
+    double nearRouteEnd = Math.floor(traveled / NEAR_ROUTE_STEP_METERS) * NEAR_ROUTE_STEP_METERS
+      + NEAR_ROUTE_STEP_METERS + NEAR_ROUTE_MIN_METERS;
+    if (nearRouteEnd != farRouteStart) {
+      farRouteStart = nearRouteEnd;
+      List<Feature> routeFeatures = new ArrayList<>();
+      for (int i = drawnRouteCollections.size() - 1; i >= 0; i--) {
+        if (i == primaryRouteIndex) {
+          routeFeatures.addAll(primaryRoutePainter.features(nearRouteEnd, true, false));
+          continue;
+        }
+        List<Feature> features = drawnRouteCollections.get(i).features();
+        if (features != null) {
+          routeFeatures.addAll(features);
+        }
+      }
+      routeLineSource.setGeoJson(FeatureCollection.fromFeatures(routeFeatures));
+    }
+    setNearRouteSource(primaryRoutePainter.features(traveled, true, true, nearRouteEnd));
+    Feature fade = primaryRoutePainter.fadeFeature(traveled);
+    setFadeSource(fade == null ? new Feature[]{} : new Feature[]{fade});
+  }
+
+  private void setNearRouteSource(List<Feature> features) {
+    if (routeNearSource != null) {
+      routeNearSource.setGeoJson(FeatureCollection.fromFeatures(features));
+    }
+  }
+
+  private void setFadeSource(Feature[] features) {
+    if (routeFadeSource != null) {
+      routeFadeSource.setGeoJson(FeatureCollection.fromFeatures(features));
+    }
+  }
+
+  /**
+   * Shows the complete route again after {@link #vanishTraveledRoute(Point)}.
+   */
+  void restoreTraveledRoute() {
+    resetVanishing();
+    if (!drawnRouteCollections.isEmpty()) {
+      drawRoutes(drawnRouteCollections);
+    }
+  }
+
+  private void resetVanishing() {
+    vanishAnimator.reset();
+    setFadeSource(new Feature[]{});
+    setNearRouteSource(new ArrayList<Feature>());
+    farRouteStart = Double.NaN;
+    routeLineTrimmer = null;
+    primaryRoutePainter = null;
+  }
+
   private void drawRoutes(List<FeatureCollection> routeFeatureCollections) {
+    drawnRouteCollections = new ArrayList<>(routeFeatureCollections);
     List<Feature> routeFeatures = new ArrayList<>();
     for (int i = routeFeatureCollections.size() - 1; i >= 0; i--) {
       routeFeatures.addAll(routeFeatureCollections.get(i).features());
@@ -281,6 +387,8 @@ class MapRouteLine {
   }
 
   private void clearRouteListData() {
+    drawnRouteCollections = new ArrayList<>();
+    resetVanishing();
     if (!directionsRoutes.isEmpty()) {
       directionsRoutes.clear();
     }
@@ -364,6 +472,9 @@ class MapRouteLine {
   }
 
   private void updateRoutesFor(int newPrimaryIndex) {
+    if (this.primaryRouteIndex != newPrimaryIndex) {
+      resetVanishing();
+    }
     this.primaryRouteIndex = newPrimaryIndex;
     if (newPrimaryIndex < 0 || newPrimaryIndex > routeFeatureCollections.size() - 1) {
       return;
@@ -422,46 +533,69 @@ class MapRouteLine {
     return belowLayer;
   }
 
-  private void initializeLayers(Style style, MapRouteLayerProvider layerProvider,
-                                Drawable originIcon, Drawable destinationIcon,
-                                String belowLayer) {
+  private static GeoJsonSource addOrReuseSource(Style style, String sourceId, GeoJsonSource source,
+                                                FeatureCollection featureCollection) {
+    GeoJsonSource existingSource = style.getSourceAs(sourceId);
+    if (existingSource == null) {
+      style.addSource(source);
+      return source;
+    }
+    existingSource.setGeoJson(featureCollection);
+    return existingSource;
+  }
+
+  private void initializeLayers(Style style, MapRouteLayerProvider layerProvider, String belowLayer) {
     LineLayer routeShieldLayer = layerProvider.initializeRouteShieldLayer(
       style, routeScale, alternativeRouteScale,
       routeShieldColor, alternativeRouteShieldColor
     );
-    MapUtils.addLayerToMap(style, routeShieldLayer, belowLayer);
-    routeLayerIds.add(routeShieldLayer.getId());
-
     LineLayer routeLayer = layerProvider.initializeRouteLayer(
       style, roundedLineCap, routeScale, alternativeRouteScale,
       routeDefaultColor, routeModerateColor, routeSevereColor,
       alternativeRouteDefaultColor, alternativeRouteModerateColor,
       alternativeRouteSevereColor
     );
-    MapUtils.addLayerToMap(style, routeLayer, belowLayer);
-    routeLayerIds.add(routeLayer.getId());
+    LineLayer blendLayer = layerProvider.initializeRouteBlendLayer(
+      style, routeLayer, routeDefaultColor, routeModerateColor, routeSevereColor,
+      alternativeRouteDefaultColor, alternativeRouteModerateColor, alternativeRouteSevereColor);
 
-    SymbolLayer wayPointLayer = layerProvider.initializeWayPointLayer(
-      style, originIcon, destinationIcon
-    );
-    MapUtils.addLayerToMap(style, wayPointLayer, belowLayer);
-    routeLayerIds.add(wayPointLayer.getId());
+    // Shields below both route parts, so the near part joins the far part without a seam
+    for (LineLayer layer : new LineLayer[]{routeShieldLayer, routeLayer, blendLayer}) {
+      MapUtils.addLayerToMap(style, layer, belowLayer);
+      routeLayerIds.add(layer.getId());
+      LineLayer nearLayer = layerProvider.copyLineLayer(
+        style, layer, layer.getId() + ROUTE_NEAR_LAYER_SUFFIX, ROUTE_NEAR_SOURCE_ID);
+      MapUtils.addLayerToMap(style, nearLayer, belowLayer);
+      routeLayerIds.add(nearLayer.getId());
+    }
+
+    LineLayer fadeShieldLayer = layerProvider.initializeRouteFadeShieldLayer(style, routeShieldLayer, routeShieldColor);
+    MapUtils.addLayerToMap(style, fadeShieldLayer, belowLayer);
+    routeLayerIds.add(fadeShieldLayer.getId());
+
+    int[] levelColors = {routeDefaultColor, routeModerateColor, routeSevereColor};
+    for (int i = 0; i < RouteLinePainter.LEVELS.size(); i++) {
+      LineLayer fadeLayer = layerProvider.initializeRouteFadeLayer(
+        style, routeLayer, RouteLinePainter.LEVELS.get(i), levelColors[i]);
+      MapUtils.addLayerToMap(style, fadeLayer, belowLayer);
+      routeLayerIds.add(fadeLayer.getId());
+    }
   }
 
   private void updateAlternativeVisibilityTo(boolean isAlternativeVisible) {
     this.alternativesVisible = isAlternativeVisible;
     if (style != null && style.isFullyLoaded()) {
       for (String layerId : routeLayerIds) {
-        if (layerId.equals(ROUTE_LAYER_ID) || layerId.equals(ROUTE_SHIELD_LAYER_ID)) {
-          Layer layer = style.getLayer(layerId);
-          if (layer != null) {
-            LineLayer route = (LineLayer) layer;
-            if (isAlternativeVisible) {
-              route.setFilter(literal(true));
-            } else {
-              route.setFilter(Expression.eq(Expression.get(PRIMARY_ROUTE_PROPERTY_KEY), true));
-            }
-          }
+        Layer layer = style.getLayer(layerId);
+        if (!(layer instanceof LineLayer)) {
+          continue;
+        }
+        LineLayer route = (LineLayer) layer;
+        if (layerId.equals(ROUTE_SHIELD_LAYER_ID)) {
+          route.setFilter(isAlternativeVisible ? Expression.literal(true)
+            : Expression.eq(Expression.get(PRIMARY_ROUTE_PROPERTY_KEY), true));
+        } else if (layerId.equals(ROUTE_LAYER_ID) || layerId.equals(ROUTE_BLEND_LAYER_ID)) {
+          route.setFilter(MapRouteLayerProvider.blendFilter(layerId.equals(ROUTE_BLEND_LAYER_ID), isAlternativeVisible));
         }
       }
     }

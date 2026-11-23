@@ -1,6 +1,7 @@
 package org.maplibre.navigation.android.navigation.ui.v5.map;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 
 import org.maplibre.android.location.LocationComponent;
 import org.maplibre.android.maps.MapLibreMap;
@@ -18,15 +19,31 @@ class LocationFpsDelegate implements MapLibreMap.OnCameraIdleListener {
   private static final int MAX_ANIMATION_FPS_FIFTEEN = 15;
   private static final int MAX_ANIMATION_FPS_TWENTY_FIVE = 25;
   private static final int MAX_ANIMATION_FPS = Integer.MAX_VALUE;
+  // While the camera is tracking, idle fires after every animation, up to once per frame
+  private static final long MIN_UPDATE_INTERVAL_NANOS = 250_000_000L;
   private final MapLibreMap mapLibreMap;
   private final LocationComponent locationComponent;
   private int currentFps = MAX_ANIMATION_FPS;
   private boolean isEnabled = true;
+  private boolean isListening;
+  private final Clock clock;
+  private long lastUpdateNanos;
+  private boolean hasUpdated;
+
+  interface Clock {
+    long nanoTime();
+  }
 
   LocationFpsDelegate(@NonNull MapLibreMap mapLibreMap, @NonNull LocationComponent locationComponent) {
+    this(mapLibreMap, locationComponent, System::nanoTime);
+  }
+
+  @VisibleForTesting
+  LocationFpsDelegate(@NonNull MapLibreMap mapLibreMap, @NonNull LocationComponent locationComponent,
+                      @NonNull Clock clock) {
     this.mapLibreMap = mapLibreMap;
     this.locationComponent = locationComponent;
-    mapLibreMap.addOnCameraIdleListener(this);
+    this.clock = clock;
   }
 
   @Override
@@ -38,11 +55,18 @@ class LocationFpsDelegate implements MapLibreMap.OnCameraIdleListener {
   }
 
   void onStart() {
-    mapLibreMap.addOnCameraIdleListener(this);
+    if (!isListening) {
+      mapLibreMap.addOnCameraIdleListener(this);
+      isListening = true;
+      updateMaxFps();
+    }
   }
 
   void onStop() {
-    mapLibreMap.removeOnCameraIdleListener(this);
+    if (isListening) {
+      mapLibreMap.removeOnCameraIdleListener(this);
+      isListening = false;
+    }
   }
 
   void updateEnabled(boolean isEnabled) {
@@ -55,6 +79,12 @@ class LocationFpsDelegate implements MapLibreMap.OnCameraIdleListener {
   }
 
   private void updateMaxFps() {
+    long now = clock.nanoTime();
+    if (hasUpdated && now - lastUpdateNanos < MIN_UPDATE_INTERVAL_NANOS) {
+      return;
+    }
+    hasUpdated = true;
+    lastUpdateNanos = now;
     double zoom = mapLibreMap.getCameraPosition().zoom;
     int maxAnimationFps = buildFpsFrom(zoom);
     if (currentFps != maxAnimationFps) {

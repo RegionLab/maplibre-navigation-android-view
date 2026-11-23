@@ -9,7 +9,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.snackbar.Snackbar
-import okhttp3.Request
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -22,7 +21,6 @@ import org.maplibre.android.maps.OnMapReadyCallback
 import org.maplibre.android.maps.Style
 import org.maplibre.navigation.android.example.databinding.ActivityMockNavigationBinding
 import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
 import org.maplibre.navigation.android.navigation.ui.v5.toMapLibre
 import org.maplibre.navigation.core.instruction.Instruction
 import org.maplibre.navigation.core.location.Location
@@ -32,9 +30,7 @@ import org.maplibre.navigation.core.milestone.MilestoneEventListener
 import org.maplibre.navigation.core.milestone.RouteMilestone
 import org.maplibre.navigation.core.milestone.Trigger
 import org.maplibre.navigation.core.milestone.TriggerProperty
-import org.maplibre.navigation.core.models.DirectionsResponse
 import org.maplibre.navigation.core.models.DirectionsRoute
-import org.maplibre.navigation.core.models.UnitType
 import org.maplibre.navigation.core.navigation.AndroidMapLibreNavigation
 import org.maplibre.navigation.core.navigation.MapLibreNavigation
 import org.maplibre.navigation.core.navigation.NavigationEventListener
@@ -44,9 +40,7 @@ import org.maplibre.navigation.core.routeprogress.RouteProgress
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.turf.measurement.distance
 import org.maplibre.spatialk.units.extensions.inMeters
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import org.maplibre.navigation.android.navigation.ui.v5.RouteRequest
 import timber.log.Timber
 import java.lang.ref.WeakReference
 
@@ -228,35 +222,19 @@ class MockNavigationActivity :
             return
         }
 
-        val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
-            this.origin(origin.toMapLibre())
-            this.destination(destination.toMapLibre())
-            this.voiceUnits(UnitType.METRIC)
-            this.alternatives(true)
-            this.baseUrl(getString(R.string.base_url))
-        }
-
-        navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>,
-            ) {
-                Timber.d("Url: %s", (call.request() as Request).url.toString())
-                response.body()?.let { response ->
-                    if (response.routes.isNotEmpty()) {
-                        val maplibreResponse = DirectionsResponse.fromJson(response.toJson());
-                        val directionsRoute = maplibreResponse.routes.first()
-                        this@MockNavigationActivity.route = directionsRoute
-                        navigationMapRoute?.addRoutes(maplibreResponse.routes)
-                    }
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, throwable: Throwable) {
-                Timber.e(throwable, "onFailure: navigation.getRoute()")
-            }
-        })
+        SampleRouting.client.getRoute(
+            SampleRouting.service(this),
+            RouteRequest(
+                origin = origin.toMapLibre(),
+                destination = destination.toMapLibre(),
+                alternatives = true,
+            ),
+            onRoutesReady = { response ->
+                this@MockNavigationActivity.route = response.routes.first()
+                navigationMapRoute?.addRoutes(response.routes)
+            },
+            onError = { error -> Timber.e(error, "Route request failed") }
+        )
     }
 
     override fun onProgressChange(location: Location, routeProgress: RouteProgress) {

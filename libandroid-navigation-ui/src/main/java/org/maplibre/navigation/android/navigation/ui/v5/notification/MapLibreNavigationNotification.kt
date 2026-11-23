@@ -45,6 +45,7 @@ open class MapLibreNavigationNotification(
     private var instructionText: String? = null
     private var currentManeuverId: Int? = null
     private var formattedArrivalTime: String? = null
+    private var lastNotifiedContent: List<Any?>? = null
 
     private val pendingOpenIntent: PendingIntent by lazy { createPendingOpenIntent(context) }
     private val pendingCloseIntent: PendingIntent by lazy { createPendingCloseIntent(context) }
@@ -175,6 +176,19 @@ open class MapLibreNavigationNotification(
         updateFormattedArrivalTime(routeProgress.durationRemaining)
         updateManeuverImage(upcomingStep ?: currentStep)
 
+        // Progress arrives every second, but the visible content changes much less often.
+        // Re-posting an identical notification still wakes up System UI, so skip it.
+        val content = listOf(
+            instructionText,
+            currentDistanceText?.toString(),
+            formattedArrivalTime,
+            currentManeuverId
+        )
+        if (content == lastNotifiedContent) {
+            return
+        }
+        lastNotifiedContent = content
+
         // Create fresh RemoteViews to prevent action accumulation
         val collapsedView = createCollapsedView(context)
         val expandedView = createExpandedView(context)
@@ -243,7 +257,7 @@ open class MapLibreNavigationNotification(
     private fun updateManeuverImage(step: LegStep) {
         val newManeuverId = maneuverUtils.getManeuverResource(step)
 
-        if (currentManeuverId != 0) {
+        if (newManeuverId != 0) {
             currentManeuverId = newManeuverId
         }
     }

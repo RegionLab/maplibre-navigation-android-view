@@ -5,6 +5,91 @@ MapLibre welcomes participation and contributions from everyone.
 
 ## Unreleased
 
+### NavigationView
+
+- **BREAKING:** `NavigationView` is rewritten in Kotlin and is now the only UI entry point.
+  `MapLibreNavigationActivity`, `NavigationLauncher`, `NavigationLauncherOptions`,
+  `NavigationViewOptions`, `SummaryBottomSheet` and the old listener interfaces
+  (`NavigationListener`, `RouteListener`, `BannerInstructionsListener`,
+  `SpeechAnnouncementListener`) are removed. Migration:
+  - `initialize(shouldSimulateRoute, onMapReadyCallback)` → `initialize(onMapReadyCallback)`,
+    simulation moved to `NavigationRequest(simulateRoute = true)`.
+  - `initialize(onNavigationReadyCallback, cameraPosition)` → `initialize(initialMapCameraPosition = cameraPosition)`.
+  - Navigation events: `setNavigationListener(object : NavigationViewListener { ... })`.
+  - `stopNavigation()` now also removes the route from the map.
+- Add `NavigationViewListener` with progress, off-route, reroute, waypoint/final arrival events
+  and hooks to change or skip voice and banner instructions.
+- Add `attachLifecycle(owner)`, so lifecycle callbacks don't have to be forwarded by hand.
+  Low memory is handled automatically.
+- Add `requestRoute(...)` and `startNavigation(route, ...)` to preview a route before navigating.
+- Add `initialize(locationEngine = ...)`, e.g. to use `GoogleLocationEngine`.
+- Add trip summary panel (remaining time, distance, arrival time): `configureUi(showTripSummary = true)`.
+- Add re-center button shown after the map is moved during navigation, `recenterCamera()` and
+  `showRouteOverview()`.
+- Fix arrival being reported on every location update after arriving.
+- Fix reroute requests on every location update while offline, failed requests now wait 5 s.
+- Fix reroute waiting for a timeout when the server answers with an HTTP error.
+- Skip rebuilding the hidden instruction list on every location update.
+- Add `trackBottomOverlay(view)` and `setOverlayInsets(top, bottom)`: the navigation UI moves out of
+  areas covered by the app (e.g. a bottom sheet) and the camera keeps the user location above them.
+- Speed limits: shown in the unit of the route (mph limits were shown as km/h), speed view turns red
+  when speeding (`configureUi(speedingTolerance = 5)`), "no speed limit" sign instead of "∞",
+  unknown limits hide the sign (`showUnknownSpeedLimit = true` for "--"), content descriptions.
+- Add `NavigationViewListener.onSpeedLimitChanged` and `onSpeedingChanged`.
+
+### Routing
+
+- Traffic on the route line: Mapbox `driving-traffic` requests `congestion`, equal levels are merged
+  into one line, fixed traffic drawn at the wrong place on routes with stops, works with the
+  vanishing route. The route log shows the traffic levels.
+- Traffic colors blend into each other and into the route color over 40 m instead of changing
+  abruptly.
+- The vanishing route follows the user location smoothly (15 fps) instead of jumping on every
+  location update, and fades in over 25 m behind the vanishing point. Only the part of the route
+  near the user location is updated on every frame, so the cost doesn't depend on the route length.
+- Kazakh voice and banner instructions for Mapbox and Valhalla, which answer `kk` in English: built
+  from the maneuvers of the route.
+
+- **BREAKING:** Route requests no longer use the Mapbox SDK services (and Retrofit). `NavigationRoute`
+  is replaced by `RoutingClient` + `RoutingService` + `RouteRequest`, responses are parsed once and
+  off the main thread instead of being converted Mapbox model → JSON → MapLibre model on the main thread.
+- Add `RoutingService.Valhalla` (OSRM output with voice and banner instructions), next to
+  `Mapbox`, `GraphHopper` and `Other` (any Mapbox Directions API compatible server).
+  Custom engines: subclass `RoutingService`.
+- Rerouting uses the same routing service as the route being navigated.
+- `initialize(routingClient = RoutingClient(okHttpClient))` to use your own `OkHttpClient`.
+- `RouteRequestException.httpCode` with the HTTP status of failed requests.
+- Request logging: `RoutingClient(logger = RoutingLogger.logcat(), logBodies = false)`, tokens and
+  API keys in urls are masked.
+- Speed limits for Valhalla routes, loaded with `trace_attributes` (`Valhalla(speedLimits = false)` to turn off).
+
+### Voice
+
+- Add `NavigationView.setSpeechPlayerFactory(...)` to use an own text-to-speech engine.
+- Add the optional `maplibre-navigation-tts-sherpa` module: offline voice instructions with
+  sherpa-onnx Piper voices (Russian, Kazakh, English, int8 quantized, 13–34 MB), downloaded on demand
+  with `SherpaVoiceStore`, Android text-to-speech as fallback (e.g. for Uzbek). Uses sherpa-onnx 1.13.x,
+  2.x removed the phonemizer Piper voices need.
+- Remove the traveled part of the route line, `configureUi(vanishTraveledRoute = true)`.
+- Fix route progress (maneuver arrow, rerouted route) ignored after `removeRoute()` or a style change.
+- GraphHopper: send Kazakh as `kz`, the code GraphHopper uses, it answered in English for `kk`.
+- Add `KazakhVoiceInstructions.rewrite(text)`: rebuilds GraphHopper's Kazakh voice instructions into
+  natural Kazakh with case endings ("Политехникалық көшесіне оңға бұрылыңыз"), unknown text is kept.
+  Templates for review: `docs/kazakh-voice-instructions.md`.
+- Add `StreetNameLocalizer.localize(text, language)`: Kazakh street names in Russian, English and
+  Uzbek instructions get a translated street type and a transliterated name
+  ("на Тимирязев көшесі" → "на улицу Тимирязев", "onto Абай даңғылы" → "onto Abay Avenue").
+  Routing engines return OpenStreetMap names in Kazakh whatever language is requested.
+- Announce "Route recalculated" in the language of the voice instructions after a reroute,
+  `configureUi(announceReroute = false)` to turn it off.
+
+### Build
+
+- Update AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21, MapLibre 13.7.1, Spatial-K 0.8.0,
+  kotlinx-serialization 1.13.0, Dokka 2.3.0, Kermit 2.2.0, compileSdk 37 and test libraries.
+- Remove Jetifier, multidex and the removed `dexOptions` block.
+- Remove the `com.mapbox.mapboxsdk:mapbox-sdk-services` dependency.
+
 ## v5.0.1 - Sept 19, 2026
 
 - Allow `setIndex` on stopped navigation [#255](https://github.com/maplibre/maplibre-navigation-android/pull/255)

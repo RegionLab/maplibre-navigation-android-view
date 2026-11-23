@@ -1,258 +1,194 @@
 package org.maplibre.navigation.android.example
 
-import android.annotation.SuppressLint
 import android.os.Bundle
-import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.snackbar.Snackbar
-import org.maplibre.navigation.core.models.DirectionsResponse
-import org.maplibre.android.annotations.MarkerOptions
+import androidx.activity.ComponentActivity
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.location.LocationComponent
-import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.LocationComponentConstants
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.OnMapReadyCallback
-import org.maplibre.android.maps.Style
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationLauncher
-import org.maplibre.navigation.android.navigation.ui.v5.NavigationLauncherOptions
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationRoute
-import org.maplibre.navigation.core.models.DirectionsRoute
-import okhttp3.Request
+import org.maplibre.android.plugins.annotation.SymbolOptions
+import org.maplibre.android.style.layers.Property.ICON_ANCHOR_CENTER
+import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
+import org.maplibre.geojson.Point
 import org.maplibre.navigation.android.example.databinding.ActivityNavigationUiBinding
-import org.maplibre.navigation.android.navigation.ui.v5.route.NavigationMapRoute
-import org.maplibre.navigation.android.navigation.ui.v5.toMapLibre
-import org.maplibre.navigation.core.models.UnitType
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.turf.measurement.distance
-import org.maplibre.spatialk.units.extensions.inMeters
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import org.maplibre.navigation.android.navigation.ui.v5.NavigationRequest
+import org.maplibre.navigation.android.navigation.ui.v5.NavigationViewListener
+import org.maplibre.navigation.android.navigation.ui.v5.RoutingClient
+import org.maplibre.navigation.android.navigation.ui.v5.RoutingLogger
+import org.maplibre.navigation.core.location.Location
+import org.maplibre.navigation.core.models.DirectionsRoute
+import org.maplibre.navigation.core.routeprogress.RouteProgress
+import org.maplibre.navigation.android.tts.sherpa.InstalledVoice
+import org.maplibre.navigation.android.tts.sherpa.SherpaSpeechPlayerFactory
+import org.maplibre.navigation.android.tts.sherpa.SherpaVoice
+import org.maplibre.navigation.android.tts.sherpa.SherpaVoiceStore
 import timber.log.Timber
+import java.util.Locale
 
-class NavigationUIActivity :
-    AppCompatActivity(),
-    OnMapReadyCallback,
-    MapLibreMap.OnMapClickListener {
-    private lateinit var mapLibreMap: MapLibreMap
-
-    // Navigation related variables
-    private var route: DirectionsRoute? = null
-    private var navigationMapRoute: NavigationMapRoute? = null
-    private var destination: Point? = null
-    private var waypoint: Point? = null
-    private var locationComponent: LocationComponent? = null
+/**
+ * Shows how to use [org.maplibre.navigation.android.navigation.ui.v5.NavigationView]:
+ * lifecycle, map setup, starting and stopping navigation and listening to navigation events.
+ */
+class NavigationUIActivity : ComponentActivity() {
 
     private lateinit var binding: ActivityNavigationUiBinding
+    private var mapLibreMap: MapLibreMap? = null
 
-    private var simulateRoute = false
+    private val navigationListener = object : NavigationViewListener {
+        override fun onNavigationStarted(route: DirectionsRoute) {
+            binding.startRouteButton.setText(R.string.stop_navigation)
+            showVanishingRouteBelowPuck()
+        }
 
-    @SuppressLint("MissingPermission")
+        override fun onNavigationStopped() {
+            binding.startRouteButton.setText(R.string.start_navigation)
+        }
+
+        override fun onOffRoute(location: Location) {
+            Timber.d("Off route, requesting a new route")
+        }
+
+        override fun onRerouteFailed(error: Throwable) {
+            Timber.w(error, "Reroute failed")
+        }
+
+        override fun onSpeedingChanged(isSpeeding: Boolean) {
+            Timber.d("Speeding: %s", isSpeeding)
+        }
+
+        override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
+            Toast.makeText(this@NavigationUIActivity, R.string.arrived, Toast.LENGTH_SHORT).show()
+            binding.navigationView.stopNavigation()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-
         binding = ActivityNavigationUiBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.mapView.apply {
-            onCreate(savedInstanceState)
-            getMapAsync(this@NavigationUIActivity)
+
+        binding.navigationView.apply {
+            onCreate(savedInstanceState, mapStyleUri = getString(R.string.map_style_light))
+            // Forwards start/resume/pause/stop/destroy, no need to override them in the activity
+            attachLifecycle(this@NavigationUIActivity)
+            setNavigationListener(navigationListener)
+            configureUi(showSpeedLimitView = true, showTripSummary = true)
+            // Offline voice instructions, the Android text-to-speech speaks until the voice is downloaded
+            setSpeechPlayerFactory(SherpaSpeechPlayerFactory(this@NavigationUIActivity, voiceStore))
+            enableNavigatorSound(true)
+            initialize(
+                onMapReadyCallback = ::onMapReady,
+                initialMapCameraPosition = CameraPosition.Builder()
+                    .target(LatLng(43.230633, 76.933810))
+                    .zoom(16.0)
+                    .build(),
+                // Logs route requests to Logcat (tag "MapLibreRouting") in debug builds
+                routingClient = RoutingClient(
+                    logger = if (BuildConfig.DEBUG) RoutingLogger.logcat() else null
+                ),
+            )
+            // Keeps the trip summary, re-center button and user location above the controls.
+            // Works the same for a BottomSheetBehavior view while it is dragged.
+            trackBottomOverlay(binding.startRouteLayout)
+        }
+
+        downloadVoice()
+
+        binding.locate.setOnClickListener {
+            mapLibreMap?.locationComponent?.apply {
+                setCameraMode(CameraMode.TRACKING_GPS, 750, 16.0, null, null, null)
+                renderMode = RenderMode.GPS
+            }
         }
 
         binding.startRouteButton.setOnClickListener {
-            route?.let { route ->
-                val userLocation = mapLibreMap.locationComponent.lastKnownLocation ?: return@let
-
-                val options = NavigationLauncherOptions.builder()
-                    .directionsRoute(route)
-                    .shouldSimulateRoute(simulateRoute)
-                    .initialMapCameraPosition(
-                        CameraPosition.Builder()
-                            .target(LatLng(userLocation.latitude, userLocation.longitude)).build()
-                    )
-                    .lightThemeResId(R.style.TestNavigationViewLight)
-                    .darkThemeResId(R.style.TestNavigationViewDark)
-                    .build()
-                NavigationLauncher.startNavigation(this@NavigationUIActivity, options)
+            if (binding.navigationView.isNavigating) {
+                binding.navigationView.stopNavigation()
+            } else {
+                startNavigation()
             }
         }
-
-        binding.simulateRouteSwitch.setOnCheckedChangeListener { _, checked ->
-            simulateRoute = checked
-        }
-
-
-        binding.clearPoints.setOnClickListener {
-            if (::mapLibreMap.isInitialized) {
-                mapLibreMap.markers.forEach {
-                    mapLibreMap.removeMarker(it)
-                }
-            }
-            destination = null
-            waypoint = null
-            it.visibility = View.GONE
-            binding.startRouteLayout.visibility = View.GONE
-
-            navigationMapRoute?.removeRoute()
-        }
     }
 
-    override fun onMapReady(mapLibreMap: MapLibreMap) {
-        this.mapLibreMap = mapLibreMap
-        mapLibreMap.setStyle(
-            Style.Builder().fromUri(getString(R.string.map_style_light))
-        ) { style ->
-            enableLocationComponent(style)
-            navigationMapRoute = NavigationMapRoute(binding.mapView, mapLibreMap)
+    private val voiceStore by lazy { SherpaVoiceStore(this) }
 
-            mapLibreMap.addOnMapClickListener(this)
-
-            Snackbar.make(
-                findViewById(R.id.container),
-                "Tap map to place waypoint",
-                Snackbar.LENGTH_LONG,
-            ).show()
-        }
-    }
-
-    @SuppressWarnings("MissingPermission")
-    private fun enableLocationComponent(style: Style) {
-        // Get an instance of the component
-        locationComponent = mapLibreMap.locationComponent
-
-        locationComponent?.let {
-            // Activate with a built LocationComponentActivationOptions object
-            it.activateLocationComponent(
-                LocationComponentActivationOptions.builder(this, style).build(),
-            )
-
-            // Enable to make component visible
-            it.isLocationComponentEnabled = true
-
-            // Set the component's camera mode
-            it.cameraMode = CameraMode.TRACKING_GPS_NORTH
-
-            // Set the component's render mode
-            it.renderMode = RenderMode.NORMAL
-        }
-    }
-
-    override fun onMapClick(point: LatLng): Boolean {
-        var addMarker = true
-        when {
-            destination == null -> destination = Point(point.longitude, point.latitude)
-            waypoint == null -> waypoint = Point(point.longitude, point.latitude)
-            else -> {
-                Toast.makeText(this, "Only 2 waypoints supported", Toast.LENGTH_LONG).show()
-                addMarker = false
-            }
-        }
-
-        if (addMarker) {
-            mapLibreMap.addMarker(MarkerOptions().position(point))
-            binding.clearPoints.visibility = View.VISIBLE
-        }
-        calculateRoute()
-        return true
-    }
-
-    private fun calculateRoute() {
-        binding.startRouteLayout.visibility = View.GONE
-        val userLocation = mapLibreMap.locationComponent.lastKnownLocation
-        val destination = destination
-        if (userLocation == null) {
-            Timber.d("calculateRoute: User location is null, therefore, origin can't be set.")
+    private fun downloadVoice() {
+        val voice = voiceStore.voiceFor(NAVIGATION_LANGUAGE.language) ?: return
+        if (voiceStore.isInstalled(voice)) {
             return
         }
-
-        if (destination == null) {
-            return
-        }
-
-        val origin = Point(userLocation.longitude, userLocation.latitude)
-        if (distance(origin, destination).inMeters < 50) {
-            Timber.d("calculateRoute: distance < 50 m")
-            binding.startRouteButton.visibility = View.GONE
-            return
-        }
-
-        val navigationRouteBuilder = NavigationRoute.builder(this).apply {
-            this.accessToken(getString(R.string.mapbox_access_token))
-            this.origin(origin.toMapLibre())
-            this.destination(destination.toMapLibre())
-            this.voiceUnits(UnitType.METRIC)
-            this.alternatives(true)
-            // If you are using this with the GraphHopper Directions API, you need to uncomment user and profile here.
-            //this.user("gh")
-            //this.profile("car")
-            this.baseUrl(getString(R.string.base_url))
-        }
-
-        navigationRouteBuilder.build().getRoute(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>,
-            ) {
-                Timber.d("Url: %s", (call.request() as Request).url.toString())
-                response.body()?.let { response ->
-                    if (response.routes.isNotEmpty()) {
-                        val maplibreResponse = DirectionsResponse.fromJson(response.toJson());
-                        this@NavigationUIActivity.route = maplibreResponse.routes.first()
-                        navigationMapRoute?.addRoutes(maplibreResponse.routes)
-                        binding.startRouteLayout.visibility = View.VISIBLE
-                    }
-                }
-
+        voiceStore.download(voice, object : SherpaVoiceStore.DownloadListener {
+            override fun onInstalled(voice: InstalledVoice) {
+                Timber.d("Voice %s installed", voice.voice.id)
+                Toast.makeText(this@NavigationUIActivity, R.string.voice_installed, Toast.LENGTH_SHORT).show()
             }
 
-            override fun onFailure(call: Call<DirectionsResponse>, throwable: Throwable) {
-                Timber.e(throwable, "onFailure: navigation.getRoute()")
+            override fun onError(voice: SherpaVoice, error: Throwable) {
+                Timber.w(error, "Voice download failed")
             }
         })
     }
 
-    override fun onResume() {
-        super.onResume()
-        binding.mapView.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        binding.mapView.onPause()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        binding.mapView.onStart()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        binding.mapView.onStop()
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        binding.mapView.onLowMemory()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::mapLibreMap.isInitialized) {
-            mapLibreMap.removeOnMapClickListener(this)
-        }
-        binding.mapView.onDestroy()
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        binding.mapView.onSaveInstanceState(outState)
+        binding.navigationView.onSaveInstanceState(outState)
+    }
+
+    private fun onMapReady(map: MapLibreMap) {
+        mapLibreMap = map
+        map.setMaxZoomPreference(18.0)
+        map.setMinZoomPreference(5.0)
+        getDrawable(R.drawable.ic_car_top)?.let { map.style?.addImage(DRIVER_MARKER_ICON_ID, it) }
+        binding.navigationView.addSymbol(
+            SymbolOptions()
+                .withLatLng(LatLng(43.230361, 76.930137))
+                .withIconImage(DRIVER_MARKER_ICON_ID)
+                .withIconAnchor(ICON_ANCHOR_CENTER)
+        )
+    }
+
+    /**
+     * Semi-transparent user location puck, to see the route vanish below it. The location layers
+     * exist once navigation started.
+     */
+    private fun showVanishingRouteBelowPuck() {
+        val style = mapLibreMap?.style ?: return
+        listOf(
+            LocationComponentConstants.FOREGROUND_LAYER,
+            LocationComponentConstants.BACKGROUND_LAYER,
+            LocationComponentConstants.SHADOW_LAYER,
+            LocationComponentConstants.BEARING_LAYER,
+        ).forEach { layerId -> style.getLayer(layerId)?.setProperties(iconOpacity(PUCK_OPACITY)) }
+    }
+
+    private fun startNavigation() {
+        val request = NavigationRequest(
+            origin = Point.fromLngLat(76.93390611559153, 43.23088776754339),
+            stops = listOf(
+                Point.fromLngLat(76.93348165601492, 43.22596650770448),
+                Point.fromLngLat(76.9333378225565, 43.22584777694432),
+            ),
+            destination = Point.fromLngLat(76.91994253546, 43.229125980195946),
+            // Valhalla demo server, works without a key. E.g. RoutingService.Mapbox(accessToken = ...)
+            routingService = SampleRouting.service(this),
+            language = NAVIGATION_LANGUAGE,
+            simulateRoute = binding.simulateRouteSwitch.isChecked,
+        )
+        binding.navigationView.startNavigation(request) { error ->
+            Timber.e(error, "Route request failed")
+            Toast.makeText(this, R.string.route_request_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private companion object {
+        const val DRIVER_MARKER_ICON_ID = "DRIVER_MARKER_ICON_ID"
+        const val PUCK_OPACITY = 0.4f
+        val NAVIGATION_LANGUAGE: Locale = Locale.forLanguageTag("ru")
     }
 }
